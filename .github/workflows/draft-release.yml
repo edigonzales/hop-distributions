@@ -90,7 +90,7 @@ jobs:
           tag_name: ${{ steps.metadata.outputs.tag_name }}
           target_commitish: ${{ github.sha }}
           name: ${{ steps.metadata.outputs.release_name }}
-          draft: true
+          draft: false
           prerelease: false
           overwrite_files: true
           body_path: dist/release-body.md
