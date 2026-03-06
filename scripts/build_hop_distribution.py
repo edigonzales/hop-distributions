@@ -1,0 +1,460 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+import zipfile
+from dataclasses import dataclass
+from pathlib import Path
+
+SUPPORTED_TARGETS = (
+    "linux-x86_64",
+    "linux-aarch64",
+    "osx-x86_64",
+    "osx-aarch64",
+    "windows-x86_64",
+)
+
+GITHUB_API_BASE = "https://api.github.com"
+GITHUB_ASSET_REPO = "edigonzales/hop-gdal-plugin"
+APACHE_HOP_DOWNLOAD_BASE = "https://downloads.apache.org/hop"
+USER_AGENT = "hop-distributions-builder/1.0"
+VECTOR_SUITE_PREFIX = "hop-vector-suite-"
+VECTOR_PLUGIN_PREFIX = "plugins/transforms/ogr-vector/"
+
+
+class BuildError(RuntimeError):
+    pass
+
+
+@dataclass(frozen=True)
+class ReleaseAsset:
+    name: str
+    download_url: str
+    target: str
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Build an Apache Hop client distribution with the hop-gdal-plugin suite merged in."
+    )
+    parser.add_argument("--hop-version", required=True, help="Apache Hop version, for example 2.17.0.")
+    parser.add_argument(
+        "--plugin-release",
+        default="latest",
+        help="hop-gdal-plugin release tag to use, or 'latest' (default).",
+    )
+    parser.add_argument(
+        "--target",
+        action="append",
+        choices=SUPPORTED_TARGETS,
+        help="Target classifier to build. May be specified multiple times. Defaults to all supported targets.",
+    )
+    parser.add_argument("--output-dir", required=True, help="Directory for generated ZIP files.")
+    parser.add_argument(
+        "--metadata-file",
+        help="Optional path for generated build metadata JSON. Defaults to <output-dir>/release-metadata.json.",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    targets = deduplicate_targets(args.target or list(SUPPORTED_TARGETS))
+    output_dir = Path(args.output_dir).resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    metadata_file = Path(args.metadata_file).resolve() if args.metadata_file else output_dir / "release-metadata.json"
+    metadata_file.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        metadata = build_distributions(
+            hop_version=args.hop_version,
+            plugin_release=args.plugin_release,
+            targets=targets,
+            output_dir=output_dir,
+        )
+    except BuildError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    metadata_file.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+    print(json.dumps(metadata, indent=2))
+    return 0
+
+
+def deduplicate_targets(targets: list[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered_targets: list[str] = []
+    for target in targets:
+        if target in seen:
+            continue
+        seen.add(target)
+        ordered_targets.append(target)
+    return ordered_targets
+
+
+def build_distributions(
+    *,
+    hop_version: str,
+    plugin_release: str,
+    targets: list[str],
+    output_dir: Path,
+) -> dict:
+    with tempfile.TemporaryDirectory(prefix="hop-dist-build-") as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+        hop_zip_path = download_hop_archive(temp_dir=temp_dir, hop_version=hop_version)
+        release_payload = fetch_plugin_release(plugin_release)
+        assets_by_target = select_vector_suite_assets(release_payload)
+
+        plugin_tag = release_payload["tag_name"]
+        plugin_tag_safe = sanitize_tag_component(plugin_tag)
+        artifacts: list[dict[str, str]] = []
+
+        for target in targets:
+            suite_asset = assets_by_target[target]
+            suite_zip_path = download_release_asset(temp_dir=temp_dir, asset=suite_asset)
+            output_name = (
+                f"apache-hop-client-{hop_version}-hop-gdal-plugin-{plugin_tag_safe}-{target}.zip"
+            )
+            output_path = output_dir / output_name
+            build_distribution_archive(
+                hop_zip_path=hop_zip_path,
+                suite_zip_path=suite_zip_path,
+                output_path=output_path,
+            )
+            artifacts.append({"target": target, "file": output_name})
+
+        short_sha = sanitize_tag_component((get_commit_sha() or "manual")[:7])
+        return {
+            "hop_version": hop_version,
+            "plugin_release_tag": plugin_tag,
+            "plugin_release_name": release_payload.get("name") or plugin_tag,
+            "plugin_tag_safe": plugin_tag_safe,
+            "targets": targets,
+            "artifacts": artifacts,
+            "release_tag": f"hop-{hop_version}-{plugin_tag_safe}-{short_sha}",
+            "release_name": f"Apache Hop {hop_version} + hop-gdal-plugin {plugin_tag} ({short_sha})",
+            "commit_sha": get_commit_sha(),
+        }
+
+
+def get_commit_sha() -> str | None:
+    for key in ("GITHUB_SHA", "CI_COMMIT_SHA"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            return value
+    return None
+
+
+def sanitize_tag_component(value: str) -> str:
+    sanitized = re.sub(r"[^0-9A-Za-z._-]+", "-", value.strip())
+    sanitized = re.sub(r"-{2,}", "-", sanitized).strip("-")
+    if not sanitized:
+        raise BuildError(f"Could not derive a safe identifier from '{value}'.")
+    return sanitized
+
+
+def fetch_plugin_release(plugin_release: str) -> dict:
+    if plugin_release == "latest":
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_ASSET_REPO}/releases/latest"
+    else:
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_ASSET_REPO}/releases/tags/{plugin_release}"
+
+    try:
+        payload = fetch_json(url)
+    except BuildError as exc:
+        if plugin_release == "latest":
+            raise BuildError(
+                f"Could not resolve the latest public release for {GITHUB_ASSET_REPO}: {exc}"
+            ) from exc
+        raise
+
+    if payload.get("draft"):
+        raise BuildError(f"Release '{payload.get('tag_name', plugin_release)}' is still a draft.")
+    if payload.get("prerelease"):
+        raise BuildError(f"Release '{payload.get('tag_name', plugin_release)}' is marked as a prerelease.")
+    if not payload.get("assets"):
+        raise BuildError(f"Release '{payload.get('tag_name', plugin_release)}' does not contain any assets.")
+    return payload
+
+
+def select_vector_suite_assets(release_payload: dict) -> dict[str, ReleaseAsset]:
+    assets_by_target: dict[str, ReleaseAsset] = {}
+    for raw_asset in release_payload.get("assets", []):
+        name = raw_asset.get("name")
+        download_url = raw_asset.get("browser_download_url")
+        if not name or not download_url:
+            continue
+
+        matched_target = None
+        for target in SUPPORTED_TARGETS:
+            if name.startswith(VECTOR_SUITE_PREFIX) and name.endswith(f"-{target}.zip"):
+                matched_target = target
+                break
+
+        if not matched_target:
+            continue
+        if matched_target in assets_by_target:
+            raise BuildError(
+                f"Release '{release_payload.get('tag_name')}' contains multiple suite assets for {matched_target}."
+            )
+
+        assets_by_target[matched_target] = ReleaseAsset(
+            name=name,
+            download_url=download_url,
+            target=matched_target,
+        )
+
+    missing_targets = [target for target in SUPPORTED_TARGETS if target not in assets_by_target]
+    if missing_targets:
+        missing = ", ".join(missing_targets)
+        raise BuildError(
+            f"Release '{release_payload.get('tag_name')}' is missing required suite assets for: {missing}."
+        )
+    return assets_by_target
+
+
+def download_hop_archive(*, temp_dir: Path, hop_version: str) -> Path:
+    archive_name = f"apache-hop-client-{hop_version}.zip"
+    archive_url = f"{APACHE_HOP_DOWNLOAD_BASE}/{hop_version}/{archive_name}"
+    checksum_url = f"{archive_url}.sha512"
+    archive_path = temp_dir / archive_name
+
+    download_file(archive_url, archive_path)
+    expected_sha512 = parse_sha512_file(fetch_text(checksum_url), archive_name)
+    actual_sha512 = calculate_sha512(archive_path)
+    if actual_sha512 != expected_sha512:
+        raise BuildError(
+            f"SHA-512 mismatch for {archive_name}: expected {expected_sha512}, got {actual_sha512}."
+        )
+    return archive_path
+
+
+def download_release_asset(*, temp_dir: Path, asset: ReleaseAsset) -> Path:
+    asset_path = temp_dir / asset.name
+    if asset_path.exists():
+        return asset_path
+    download_file(asset.download_url, asset_path)
+    validate_suite_archive(asset_path)
+    return asset_path
+
+
+def fetch_json(url: str) -> dict:
+    data = fetch_bytes(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "User-Agent": USER_AGENT,
+        },
+    )
+    try:
+        return json.loads(data.decode("utf-8"))
+    except json.JSONDecodeError as exc:
+        raise BuildError(f"Response from {url} is not valid JSON.") from exc
+
+
+def fetch_text(url: str) -> str:
+    return fetch_bytes(url, headers={"User-Agent": USER_AGENT}).decode("utf-8")
+
+
+def download_file(url: str, destination: Path) -> None:
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    try:
+        with urllib.request.urlopen(request) as response, destination.open("wb") as handle:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+    except urllib.error.HTTPError as exc:
+        raise BuildError(f"HTTP {exc.code} while requesting {url}.") from exc
+    except urllib.error.URLError as exc:
+        raise BuildError(f"Could not reach {url}: {exc.reason}.") from exc
+
+
+def fetch_bytes(url: str, headers: dict[str, str]) -> bytes:
+    request = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(request) as response:
+            return response.read()
+    except urllib.error.HTTPError as exc:
+        raise BuildError(f"HTTP {exc.code} while requesting {url}.") from exc
+    except urllib.error.URLError as exc:
+        raise BuildError(f"Could not reach {url}: {exc.reason}.") from exc
+
+
+def parse_sha512_file(contents: str, archive_name: str) -> str:
+    line = contents.strip().splitlines()[0].strip()
+    parts = line.split()
+    if len(parts) < 2:
+        raise BuildError(f"Unexpected SHA-512 file format for {archive_name}.")
+    checksum = parts[0]
+    referenced_file = parts[-1].lstrip("*")
+    if referenced_file != archive_name:
+        raise BuildError(
+            f"SHA-512 file references '{referenced_file}' instead of '{archive_name}'."
+        )
+    if not re.fullmatch(r"[0-9a-fA-F]{128}", checksum):
+        raise BuildError(f"Invalid SHA-512 checksum for {archive_name}.")
+    return checksum.lower()
+
+
+def calculate_sha512(path: Path) -> str:
+    digest = hashlib.sha512()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def validate_suite_archive(suite_zip_path: Path) -> None:
+    with zipfile.ZipFile(suite_zip_path) as suite_zip:
+        has_plugin = any(
+            normalize_zip_entry_name(info.filename).startswith(VECTOR_PLUGIN_PREFIX)
+            for info in suite_zip.infolist()
+            if info.filename
+        )
+        if not has_plugin:
+            raise BuildError(
+                f"Suite archive '{suite_zip_path.name}' does not contain {VECTOR_PLUGIN_PREFIX}."
+            )
+
+
+def build_distribution_archive(*, hop_zip_path: Path, suite_zip_path: Path, output_path: Path) -> None:
+    validate_suite_archive(suite_zip_path)
+
+    with tempfile.TemporaryDirectory(prefix="hop-merge-") as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+        with zipfile.ZipFile(hop_zip_path) as hop_zip:
+            safe_extract_all(hop_zip, temp_dir)
+
+        hop_root = temp_dir / "hop"
+        if not hop_root.is_dir():
+            raise BuildError(f"Hop archive '{hop_zip_path.name}' does not contain a top-level 'hop/' directory.")
+
+        with zipfile.ZipFile(suite_zip_path) as suite_zip:
+            safe_extract_all(suite_zip, hop_root)
+
+        if not (hop_root / "plugins" / "transforms" / "ogr-vector").exists():
+            raise BuildError(f"Suite archive '{suite_zip_path.name}' was not merged into hop/plugins/transforms/ogr-vector.")
+
+    merge_zip_archives(hop_zip_path=hop_zip_path, suite_zip_path=suite_zip_path, output_path=output_path)
+    validate_output_archive(output_path)
+
+
+def safe_extract_all(zip_file: zipfile.ZipFile, destination: Path) -> None:
+    for info in zip_file.infolist():
+        normalized = normalize_zip_entry_name(info.filename)
+        target_path = destination / normalized.rstrip("/")
+        if info.is_dir():
+            target_path.mkdir(parents=True, exist_ok=True)
+            continue
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        with zip_file.open(info) as source_handle, target_path.open("wb") as target_handle:
+            target_handle.write(source_handle.read())
+
+
+def normalize_zip_entry_name(name: str) -> str:
+    normalized = name.replace("\\", "/").lstrip("/")
+    is_directory = normalized.endswith("/")
+    parts = [part for part in normalized.split("/") if part not in ("", ".")]
+    if not parts or any(part == ".." for part in parts):
+        raise BuildError(f"Unsafe ZIP entry name: '{name}'.")
+    normalized = "/".join(parts)
+    if is_directory:
+        normalized += "/"
+    return normalized
+
+
+def merge_zip_archives(*, hop_zip_path: Path, suite_zip_path: Path, output_path: Path) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with (
+        zipfile.ZipFile(hop_zip_path) as hop_zip,
+        zipfile.ZipFile(suite_zip_path) as suite_zip,
+        zipfile.ZipFile(output_path, mode="w", allowZip64=True) as output_zip,
+    ):
+        output_zip.comment = hop_zip.comment
+        prefixed_suite_entries = build_prefixed_suite_entries(suite_zip)
+
+        for info in hop_zip.infolist():
+            normalized_name = normalize_zip_entry_name(info.filename)
+            if normalized_name in prefixed_suite_entries:
+                continue
+            copy_zip_entry(source_zip=hop_zip, source_info=info, destination_zip=output_zip, destination_name=normalized_name)
+
+        for destination_name, source_info in prefixed_suite_entries.items():
+            copy_zip_entry(
+                source_zip=suite_zip,
+                source_info=source_info,
+                destination_zip=output_zip,
+                destination_name=destination_name,
+            )
+
+
+def build_prefixed_suite_entries(suite_zip: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
+    prefixed_entries: dict[str, zipfile.ZipInfo] = {}
+    for info in suite_zip.infolist():
+        normalized_name = normalize_zip_entry_name(info.filename)
+        if normalized_name.startswith("hop/"):
+            raise BuildError("Suite archive must not include a top-level 'hop/' directory.")
+        destination_name = f"hop/{normalized_name}"
+        if destination_name in prefixed_entries:
+            raise BuildError(f"Suite archive contains duplicate entry '{destination_name}'.")
+        prefixed_entries[destination_name] = info
+    return prefixed_entries
+
+
+def copy_zip_entry(
+    *,
+    source_zip: zipfile.ZipFile,
+    source_info: zipfile.ZipInfo,
+    destination_zip: zipfile.ZipFile,
+    destination_name: str,
+) -> None:
+    if source_info.is_dir() and not destination_name.endswith("/"):
+        destination_name += "/"
+
+    destination_info = clone_zip_info(source_info, destination_name)
+    data = b"" if source_info.is_dir() else source_zip.read(source_info.filename)
+    destination_zip.writestr(destination_info, data)
+
+
+def clone_zip_info(source_info: zipfile.ZipInfo, destination_name: str) -> zipfile.ZipInfo:
+    info = zipfile.ZipInfo(filename=destination_name, date_time=source_info.date_time)
+    info.comment = source_info.comment
+    info.compress_type = source_info.compress_type
+    info.create_system = source_info.create_system
+    info.create_version = source_info.create_version
+    info.extract_version = source_info.extract_version
+    info.extra = source_info.extra
+    info.external_attr = source_info.external_attr
+    info.flag_bits = source_info.flag_bits
+    info.internal_attr = source_info.internal_attr
+    info.volume = source_info.volume
+    return info
+
+
+def validate_output_archive(output_path: Path) -> None:
+    with zipfile.ZipFile(output_path) as output_zip:
+        names = [normalize_zip_entry_name(name) for name in output_zip.namelist() if name]
+    if "hop/" not in names and not any(name.startswith("hop/") for name in names):
+        raise BuildError(f"Output archive '{output_path.name}' does not contain a top-level 'hop/' directory.")
+    if not any(name.startswith(f"hop/{VECTOR_PLUGIN_PREFIX}") for name in names):
+        raise BuildError(
+            f"Output archive '{output_path.name}' does not contain hop/{VECTOR_PLUGIN_PREFIX}."
+        )
+    if not any(name.startswith("hop/lib/") for name in names):
+        raise BuildError(f"Output archive '{output_path.name}' is missing hop/lib/.")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

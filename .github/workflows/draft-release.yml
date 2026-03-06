@@ -1,0 +1,96 @@
+name: Draft Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Build Hop distributions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run script tests
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
+
+      - name: Build distributions
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/build_hop_distribution.py \
+            --hop-version 2.17.0 \
+            --plugin-release latest \
+            --output-dir dist
+          ls -lah dist
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: hop-distributions
+          if-no-files-found: error
+          path: |
+            dist/*.zip
+            dist/release-metadata.json
+
+  release:
+    name: Create draft release
+    runs-on: ubuntu-latest
+    needs: package
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: hop-distributions
+          path: dist
+
+      - name: Prepare release metadata
+        id: metadata
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          metadata = json.loads(Path("dist/release-metadata.json").read_text(encoding="utf-8"))
+          body_lines = [
+              f"Commit: `{metadata['commit_sha']}`" if metadata.get("commit_sha") else "Commit: local/manual run",
+              f"Apache Hop: `{metadata['hop_version']}`",
+              f"hop-gdal-plugin: `{metadata['plugin_release_tag']}`",
+              "",
+              "Assets:",
+          ]
+          body_lines.extend(f"- `{artifact['file']}`" for artifact in metadata["artifacts"])
+          body = "\n".join(body_lines) + "\n"
+          Path("dist/release-body.md").write_text(body, encoding="utf-8")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"tag_name={metadata['release_tag']}\n")
+              handle.write(f"release_name={metadata['release_name']}\n")
+          PY
+
+      - name: Create draft GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag_name }}
+          target_commitish: ${{ github.sha }}
+          name: ${{ steps.metadata.outputs.release_name }}
+          draft: true
+          prerelease: false
+          overwrite_files: true
+          body_path: dist/release-body.md
+          files: dist/*.zip
