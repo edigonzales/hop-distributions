@@ -5,6 +5,7 @@ Builds Apache Hop 2.17.0 client distributions with the `hop-gdal-plugin` vector 
 ## What it does
 
 - Runs on every `push` to `main`
+- Can also be started manually with `workflow_dispatch`
 - Does not run on pull requests
 - Downloads `apache-hop-client-2.17.0.zip` from Apache
 - Resolves the latest public `edigonzales/hop-gdal-plugin` release
