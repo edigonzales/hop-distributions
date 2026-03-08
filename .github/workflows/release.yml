@@ -48,7 +48,7 @@ jobs:
             dist/release-metadata.json
 
   release:
-    name: Create draft release
+    name: Create release
     runs-on: ubuntu-latest
     needs: package
 
