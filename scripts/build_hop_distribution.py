@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -23,11 +24,14 @@ SUPPORTED_TARGETS = (
 )
 
 GITHUB_API_BASE = "https://api.github.com"
-GITHUB_ASSET_REPO = "edigonzales/hop-gdal-plugin"
+GDAL_PLUGIN_REPO = "edigonzales/hop-gdal-plugin"
+GEOMETRY_INSPECTOR_REPO = "edigonzales/hop-geometry-inspector-plugin"
 APACHE_HOP_DOWNLOAD_BASE = "https://downloads.apache.org/hop"
 USER_AGENT = "hop-distributions-builder/1.0"
 VECTOR_SUITE_PREFIX = "hop-vector-suite-"
 VECTOR_PLUGIN_PREFIX = "plugins/transforms/ogr-vector/"
+GEOMETRY_INSPECTOR_ASSET_PREFIX = "hop-geometry-inspector-plugin-"
+GEOMETRY_INSPECTOR_PLUGIN_PREFIX = "plugins/misc/hop-geometry-inspector/"
 
 
 class BuildError(RuntimeError):
@@ -41,15 +45,29 @@ class ReleaseAsset:
     target: str
 
 
+@dataclass(frozen=True)
+class PluginArchive:
+    path: Path
+    required_prefix: str
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build an Apache Hop client distribution with the hop-gdal-plugin suite merged in."
+        description=(
+            "Build an Apache Hop client distribution with the hop-gdal-plugin suite "
+            "and hop-geometry-inspector-plugin merged in."
+        )
     )
     parser.add_argument("--hop-version", required=True, help="Apache Hop version, for example 2.17.0.")
     parser.add_argument(
         "--plugin-release",
         default="latest",
         help="hop-gdal-plugin release tag to use, or 'latest' (default).",
+    )
+    parser.add_argument(
+        "--geometry-inspector-release",
+        default="latest",
+        help="hop-geometry-inspector-plugin release tag to use, or 'latest' (default).",
     )
     parser.add_argument(
         "--target",
@@ -77,6 +95,7 @@ def main(argv: list[str] | None = None) -> int:
         metadata = build_distributions(
             hop_version=args.hop_version,
             plugin_release=args.plugin_release,
+            geometry_inspector_release=args.geometry_inspector_release,
             targets=targets,
             output_dir=output_dir,
         )
@@ -104,29 +123,56 @@ def build_distributions(
     *,
     hop_version: str,
     plugin_release: str,
+    geometry_inspector_release: str,
     targets: list[str],
     output_dir: Path,
 ) -> dict:
     with tempfile.TemporaryDirectory(prefix="hop-dist-build-") as temp_dir_name:
         temp_dir = Path(temp_dir_name)
         hop_zip_path = download_hop_archive(temp_dir=temp_dir, hop_version=hop_version)
-        release_payload = fetch_plugin_release(plugin_release)
-        assets_by_target = select_vector_suite_assets(release_payload)
+        gdal_release_payload = fetch_github_release(GDAL_PLUGIN_REPO, plugin_release)
+        assets_by_target = select_vector_suite_assets(gdal_release_payload)
+        geometry_release_payload = fetch_github_release(
+            GEOMETRY_INSPECTOR_REPO,
+            geometry_inspector_release,
+        )
+        geometry_asset = select_single_zip_asset(
+            geometry_release_payload,
+            asset_prefix=GEOMETRY_INSPECTOR_ASSET_PREFIX,
+            repo_name=GEOMETRY_INSPECTOR_REPO,
+        )
 
-        plugin_tag = release_payload["tag_name"]
+        plugin_tag = gdal_release_payload["tag_name"]
         plugin_tag_safe = sanitize_tag_component(plugin_tag)
+        geometry_plugin_tag = geometry_release_payload["tag_name"]
+        geometry_plugin_tag_safe = sanitize_tag_component(geometry_plugin_tag)
+        geometry_plugin_zip_path = download_release_asset(
+            temp_dir=temp_dir,
+            asset=geometry_asset,
+            required_prefix=GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
+        )
         artifacts: list[dict[str, str]] = []
 
         for target in targets:
             suite_asset = assets_by_target[target]
-            suite_zip_path = download_release_asset(temp_dir=temp_dir, asset=suite_asset)
+            suite_zip_path = download_release_asset(
+                temp_dir=temp_dir,
+                asset=suite_asset,
+                required_prefix=VECTOR_PLUGIN_PREFIX,
+            )
             output_name = (
                 f"apache-hop-client-{hop_version}-hop-gdal-plugin-{plugin_tag_safe}-{target}.zip"
             )
             output_path = output_dir / output_name
             build_distribution_archive(
                 hop_zip_path=hop_zip_path,
-                suite_zip_path=suite_zip_path,
+                plugin_archives=[
+                    PluginArchive(path=suite_zip_path, required_prefix=VECTOR_PLUGIN_PREFIX),
+                    PluginArchive(
+                        path=geometry_plugin_zip_path,
+                        required_prefix=GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
+                    ),
+                ],
                 output_path=output_path,
             )
             artifacts.append({"target": target, "file": output_name})
@@ -135,12 +181,20 @@ def build_distributions(
         return {
             "hop_version": hop_version,
             "plugin_release_tag": plugin_tag,
-            "plugin_release_name": release_payload.get("name") or plugin_tag,
+            "plugin_release_name": gdal_release_payload.get("name") or plugin_tag,
             "plugin_tag_safe": plugin_tag_safe,
+            "geometry_inspector_release_tag": geometry_plugin_tag,
+            "geometry_inspector_release_name": (
+                geometry_release_payload.get("name") or geometry_plugin_tag
+            ),
+            "geometry_inspector_tag_safe": geometry_plugin_tag_safe,
             "targets": targets,
             "artifacts": artifacts,
-            "release_tag": f"hop-{hop_version}-{plugin_tag_safe}-{short_sha}",
-            "release_name": f"Apache Hop {hop_version} + hop-gdal-plugin {plugin_tag} ({short_sha})",
+            "release_tag": f"hop-{hop_version}-{plugin_tag_safe}-{geometry_plugin_tag_safe}-{short_sha}",
+            "release_name": (
+                f"Apache Hop {hop_version} + hop-gdal-plugin {plugin_tag} "
+                f"+ hop-geometry-inspector-plugin {geometry_plugin_tag} ({short_sha})"
+            ),
             "commit_sha": get_commit_sha(),
         }
 
@@ -161,27 +215,27 @@ def sanitize_tag_component(value: str) -> str:
     return sanitized
 
 
-def fetch_plugin_release(plugin_release: str) -> dict:
-    if plugin_release == "latest":
-        url = f"{GITHUB_API_BASE}/repos/{GITHUB_ASSET_REPO}/releases/latest"
+def fetch_github_release(repo_name: str, release_name: str) -> dict:
+    if release_name == "latest":
+        url = f"{GITHUB_API_BASE}/repos/{repo_name}/releases/latest"
     else:
-        url = f"{GITHUB_API_BASE}/repos/{GITHUB_ASSET_REPO}/releases/tags/{plugin_release}"
+        url = f"{GITHUB_API_BASE}/repos/{repo_name}/releases/tags/{release_name}"
 
     try:
         payload = fetch_json(url)
     except BuildError as exc:
-        if plugin_release == "latest":
+        if release_name == "latest":
             raise BuildError(
-                f"Could not resolve the latest public release for {GITHUB_ASSET_REPO}: {exc}"
+                f"Could not resolve the latest public release for {repo_name}: {exc}"
             ) from exc
         raise
 
     if payload.get("draft"):
-        raise BuildError(f"Release '{payload.get('tag_name', plugin_release)}' is still a draft.")
+        raise BuildError(f"Release '{payload.get('tag_name', release_name)}' is still a draft.")
     if payload.get("prerelease"):
-        raise BuildError(f"Release '{payload.get('tag_name', plugin_release)}' is marked as a prerelease.")
+        raise BuildError(f"Release '{payload.get('tag_name', release_name)}' is marked as a prerelease.")
     if not payload.get("assets"):
-        raise BuildError(f"Release '{payload.get('tag_name', plugin_release)}' does not contain any assets.")
+        raise BuildError(f"Release '{payload.get('tag_name', release_name)}' does not contain any assets.")
     return payload
 
 
@@ -237,12 +291,26 @@ def download_hop_archive(*, temp_dir: Path, hop_version: str) -> Path:
     return archive_path
 
 
-def download_release_asset(*, temp_dir: Path, asset: ReleaseAsset) -> Path:
+def select_single_zip_asset(release_payload: dict, *, asset_prefix: str, repo_name: str) -> ReleaseAsset:
+    matching_assets = [
+        asset
+        for asset in release_payload.get("assets", [])
+        if asset.get("name", "").startswith(asset_prefix) and asset.get("name", "").endswith(".zip")
+    ]
+    if len(matching_assets) != 1:
+        raise BuildError(
+            f"Release '{release_payload.get('tag_name')}' in {repo_name} must contain exactly one '{asset_prefix}*.zip' asset."
+        )
+    asset = matching_assets[0]
+    return ReleaseAsset(name=asset["name"], download_url=asset["browser_download_url"], target="generic")
+
+
+def download_release_asset(*, temp_dir: Path, asset: ReleaseAsset, required_prefix: str) -> Path:
     asset_path = temp_dir / asset.name
     if asset_path.exists():
         return asset_path
     download_file(asset.download_url, asset_path)
-    validate_suite_archive(asset_path)
+    validate_plugin_archive(asset_path, required_prefix)
     return asset_path
 
 
@@ -315,21 +383,27 @@ def calculate_sha512(path: Path) -> str:
     return digest.hexdigest()
 
 
-def validate_suite_archive(suite_zip_path: Path) -> None:
-    with zipfile.ZipFile(suite_zip_path) as suite_zip:
+def validate_plugin_archive(plugin_zip_path: Path, required_prefix: str) -> None:
+    with zipfile.ZipFile(plugin_zip_path) as suite_zip:
         has_plugin = any(
-            normalize_zip_entry_name(info.filename).startswith(VECTOR_PLUGIN_PREFIX)
+            normalize_zip_entry_name(info.filename).startswith(required_prefix)
             for info in suite_zip.infolist()
             if info.filename
         )
         if not has_plugin:
             raise BuildError(
-                f"Suite archive '{suite_zip_path.name}' does not contain {VECTOR_PLUGIN_PREFIX}."
+                f"Plugin archive '{plugin_zip_path.name}' does not contain {required_prefix}."
             )
 
 
-def build_distribution_archive(*, hop_zip_path: Path, suite_zip_path: Path, output_path: Path) -> None:
-    validate_suite_archive(suite_zip_path)
+def build_distribution_archive(
+    *,
+    hop_zip_path: Path,
+    plugin_archives: list[PluginArchive],
+    output_path: Path,
+) -> None:
+    for plugin_archive in plugin_archives:
+        validate_plugin_archive(plugin_archive.path, plugin_archive.required_prefix)
 
     with tempfile.TemporaryDirectory(prefix="hop-merge-") as temp_dir_name:
         temp_dir = Path(temp_dir_name)
@@ -340,14 +414,19 @@ def build_distribution_archive(*, hop_zip_path: Path, suite_zip_path: Path, outp
         if not hop_root.is_dir():
             raise BuildError(f"Hop archive '{hop_zip_path.name}' does not contain a top-level 'hop/' directory.")
 
-        with zipfile.ZipFile(suite_zip_path) as suite_zip:
-            safe_extract_all(suite_zip, hop_root)
+        for plugin_archive in plugin_archives:
+            with zipfile.ZipFile(plugin_archive.path) as plugin_zip:
+                safe_extract_all(plugin_zip, hop_root)
 
-        if not (hop_root / "plugins" / "transforms" / "ogr-vector").exists():
-            raise BuildError(f"Suite archive '{suite_zip_path.name}' was not merged into hop/plugins/transforms/ogr-vector.")
+        for plugin_archive in plugin_archives:
+            required_path = hop_root / Path(plugin_archive.required_prefix.rstrip("/"))
+            if not required_path.exists():
+                raise BuildError(
+                    f"Plugin archive '{plugin_archive.path.name}' was not merged into hop/{plugin_archive.required_prefix}."
+                )
 
-    merge_zip_archives(hop_zip_path=hop_zip_path, suite_zip_path=suite_zip_path, output_path=output_path)
-    validate_output_archive(output_path)
+    merge_zip_archives(hop_zip_path=hop_zip_path, plugin_archives=plugin_archives, output_path=output_path)
+    validate_output_archive(output_path, [archive.required_prefix for archive in plugin_archives])
 
 
 def safe_extract_all(zip_file: zipfile.ZipFile, destination: Path) -> None:
@@ -375,42 +454,68 @@ def normalize_zip_entry_name(name: str) -> str:
     return normalized
 
 
-def merge_zip_archives(*, hop_zip_path: Path, suite_zip_path: Path, output_path: Path) -> None:
+def merge_zip_archives(*, hop_zip_path: Path, plugin_archives: list[PluginArchive], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with (
-        zipfile.ZipFile(hop_zip_path) as hop_zip,
-        zipfile.ZipFile(suite_zip_path) as suite_zip,
-        zipfile.ZipFile(output_path, mode="w", allowZip64=True) as output_zip,
-    ):
+    with ExitStack() as stack:
+        hop_zip = stack.enter_context(zipfile.ZipFile(hop_zip_path))
+        opened_plugin_zips = [
+            (plugin_archive, stack.enter_context(zipfile.ZipFile(plugin_archive.path)))
+            for plugin_archive in plugin_archives
+        ]
+        output_zip = stack.enter_context(zipfile.ZipFile(output_path, mode="w", allowZip64=True))
         output_zip.comment = hop_zip.comment
-        prefixed_suite_entries = build_prefixed_suite_entries(suite_zip)
+        prefixed_plugin_names, prefixed_plugin_entries = collect_prefixed_plugin_entries(opened_plugin_zips)
 
         for info in hop_zip.infolist():
             normalized_name = normalize_zip_entry_name(info.filename)
-            if normalized_name in prefixed_suite_entries:
+            if normalized_name in prefixed_plugin_names:
                 continue
-            copy_zip_entry(source_zip=hop_zip, source_info=info, destination_zip=output_zip, destination_name=normalized_name)
-
-        for destination_name, source_info in prefixed_suite_entries.items():
             copy_zip_entry(
-                source_zip=suite_zip,
+                source_zip=hop_zip,
+                source_info=info,
+                destination_zip=output_zip,
+                destination_name=normalized_name,
+            )
+
+        for source_zip, source_info, destination_name in prefixed_plugin_entries:
+            copy_zip_entry(
+                source_zip=source_zip,
                 source_info=source_info,
                 destination_zip=output_zip,
                 destination_name=destination_name,
             )
 
 
-def build_prefixed_suite_entries(suite_zip: zipfile.ZipFile) -> dict[str, zipfile.ZipInfo]:
-    prefixed_entries: dict[str, zipfile.ZipInfo] = {}
-    for info in suite_zip.infolist():
-        normalized_name = normalize_zip_entry_name(info.filename)
-        if normalized_name.startswith("hop/"):
-            raise BuildError("Suite archive must not include a top-level 'hop/' directory.")
-        destination_name = f"hop/{normalized_name}"
-        if destination_name in prefixed_entries:
-            raise BuildError(f"Suite archive contains duplicate entry '{destination_name}'.")
-        prefixed_entries[destination_name] = info
-    return prefixed_entries
+def collect_prefixed_plugin_entries(
+    opened_plugin_zips: list[tuple[PluginArchive, zipfile.ZipFile]],
+) -> tuple[set[str], list[tuple[zipfile.ZipFile, zipfile.ZipInfo, str]]]:
+    prefixed_names: set[str] = set()
+    prefixed_entries: list[tuple[zipfile.ZipFile, zipfile.ZipInfo, str]] = []
+    for plugin_archive, plugin_zip in opened_plugin_zips:
+        seen_in_archive: set[str] = set()
+        for info in plugin_zip.infolist():
+            normalized_name = normalize_zip_entry_name(info.filename)
+            if normalized_name.startswith("hop/"):
+                raise BuildError(
+                    f"Plugin archive '{plugin_archive.path.name}' must not include a top-level 'hop/' directory."
+                )
+            destination_name = f"hop/{normalized_name}"
+            if destination_name in seen_in_archive:
+                raise BuildError(
+                    f"Plugin archive '{plugin_archive.path.name}' contains duplicate entry '{destination_name}'."
+                )
+            seen_in_archive.add(destination_name)
+
+            if destination_name in prefixed_names:
+                if info.is_dir():
+                    continue
+                raise BuildError(
+                    f"Plugin archives overlap on file '{destination_name}'."
+                )
+
+            prefixed_names.add(destination_name)
+            prefixed_entries.append((plugin_zip, info, destination_name))
+    return prefixed_names, prefixed_entries
 
 
 def copy_zip_entry(
@@ -443,15 +548,16 @@ def clone_zip_info(source_info: zipfile.ZipInfo, destination_name: str) -> zipfi
     return info
 
 
-def validate_output_archive(output_path: Path) -> None:
+def validate_output_archive(output_path: Path, required_prefixes: list[str]) -> None:
     with zipfile.ZipFile(output_path) as output_zip:
         names = [normalize_zip_entry_name(name) for name in output_zip.namelist() if name]
     if "hop/" not in names and not any(name.startswith("hop/") for name in names):
         raise BuildError(f"Output archive '{output_path.name}' does not contain a top-level 'hop/' directory.")
-    if not any(name.startswith(f"hop/{VECTOR_PLUGIN_PREFIX}") for name in names):
-        raise BuildError(
-            f"Output archive '{output_path.name}' does not contain hop/{VECTOR_PLUGIN_PREFIX}."
-        )
+    for required_prefix in required_prefixes:
+        if not any(name.startswith(f"hop/{required_prefix}") for name in names):
+            raise BuildError(
+                f"Output archive '{output_path.name}' does not contain hop/{required_prefix}."
+            )
     if not any(name.startswith("hop/lib/") for name in names):
         raise BuildError(f"Output archive '{output_path.name}' is missing hop/lib/.")
 
