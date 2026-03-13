@@ -35,6 +35,7 @@ jobs:
             --hop-version 2.17.0 \
             --plugin-release latest \
             --geometry-inspector-release latest \
+            --ili2db-release latest \
             --output-dir dist
           ls -lah dist
 
@@ -74,6 +75,7 @@ jobs:
               f"Apache Hop: `{metadata['hop_version']}`",
               f"hop-gdal-plugin: `{metadata['plugin_release_tag']}`",
               f"hop-geometry-inspector-plugin: `{metadata['geometry_inspector_release_tag']}`",
+              f"hop-ili2db-plugin: `{metadata['ili2db_release_tag']}`",
               "",
               "Assets:",
           ]
@@ -86,7 +88,7 @@ jobs:
               handle.write(f"release_name={metadata['release_name']}\n")
           PY
 
-      - name: Create draft GitHub release
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.metadata.outputs.tag_name }}
