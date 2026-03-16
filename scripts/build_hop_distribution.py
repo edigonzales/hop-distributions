@@ -27,6 +27,7 @@ GITHUB_API_BASE = "https://api.github.com"
 GDAL_PLUGIN_REPO = "edigonzales/hop-gdal-plugin"
 GEOMETRY_INSPECTOR_REPO = "edigonzales/hop-geometry-inspector-plugin"
 ILI2DB_PLUGIN_REPO = "edigonzales/hop-ili2db-plugin"
+ILIVALIDATOR_PLUGIN_REPO = "edigonzales/hop-ilivalidator-plugin"
 APACHE_HOP_DOWNLOAD_BASE = "https://downloads.apache.org/hop"
 USER_AGENT = "hop-distributions-builder/1.0"
 VECTOR_SUITE_PREFIX = "hop-vector-suite-"
@@ -37,6 +38,10 @@ ILI2DB_ACTION_ASSET_PREFIX = "hop-action-ili2db-"
 ILI2DB_ACTION_PLUGIN_PREFIX = "plugins/actions/ili2db/"
 ILI2DB_TRANSFORM_ASSET_PREFIX = "hop-transform-ili2db-"
 ILI2DB_TRANSFORM_PLUGIN_PREFIX = "plugins/transforms/ili2db/"
+ILIVALIDATOR_ACTION_ASSET_PREFIX = "hop-action-ilivalidator-"
+ILIVALIDATOR_ACTION_PLUGIN_PREFIX = "plugins/actions/ilivalidator/"
+ILIVALIDATOR_TRANSFORM_ASSET_PREFIX = "hop-transform-ilivalidator-"
+ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX = "plugins/transforms/ilivalidator/"
 
 
 class BuildError(RuntimeError):
@@ -60,7 +65,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Build an Apache Hop client distribution with the hop-gdal-plugin suite "
-            "plus hop-geometry-inspector-plugin and hop-ili2db-plugin merged in."
+            "plus hop-geometry-inspector-plugin, hop-ili2db-plugin, and "
+            "hop-ilivalidator-plugin merged in."
         )
     )
     parser.add_argument("--hop-version", required=True, help="Apache Hop version, for example 2.17.0.")
@@ -78,6 +84,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--ili2db-release",
         default="latest",
         help="hop-ili2db-plugin release tag to use, or 'latest' (default).",
+    )
+    parser.add_argument(
+        "--ilivalidator-release",
+        default="latest",
+        help="hop-ilivalidator-plugin release tag to use, or 'latest' (default).",
     )
     parser.add_argument(
         "--target",
@@ -107,6 +118,7 @@ def main(argv: list[str] | None = None) -> int:
             plugin_release=args.plugin_release,
             geometry_inspector_release=args.geometry_inspector_release,
             ili2db_release=args.ili2db_release,
+            ilivalidator_release=args.ilivalidator_release,
             targets=targets,
             output_dir=output_dir,
         )
@@ -136,6 +148,7 @@ def build_distributions(
     plugin_release: str,
     geometry_inspector_release: str,
     ili2db_release: str,
+    ilivalidator_release: str,
     targets: list[str],
     output_dir: Path,
 ) -> dict:
@@ -167,6 +180,20 @@ def build_distributions(
             asset_prefix=ILI2DB_TRANSFORM_ASSET_PREFIX,
             repo_name=ILI2DB_PLUGIN_REPO,
         )
+        ilivalidator_release_payload = fetch_github_release(
+            ILIVALIDATOR_PLUGIN_REPO,
+            ilivalidator_release,
+        )
+        ilivalidator_action_asset = select_single_zip_asset(
+            ilivalidator_release_payload,
+            asset_prefix=ILIVALIDATOR_ACTION_ASSET_PREFIX,
+            repo_name=ILIVALIDATOR_PLUGIN_REPO,
+        )
+        ilivalidator_transform_asset = select_single_zip_asset(
+            ilivalidator_release_payload,
+            asset_prefix=ILIVALIDATOR_TRANSFORM_ASSET_PREFIX,
+            repo_name=ILIVALIDATOR_PLUGIN_REPO,
+        )
 
         plugin_tag = gdal_release_payload["tag_name"]
         plugin_tag_safe = sanitize_tag_component(plugin_tag)
@@ -174,6 +201,8 @@ def build_distributions(
         geometry_plugin_tag_safe = sanitize_tag_component(geometry_plugin_tag)
         ili2db_plugin_tag = ili2db_release_payload["tag_name"]
         ili2db_plugin_tag_safe = sanitize_tag_component(ili2db_plugin_tag)
+        ilivalidator_plugin_tag = ilivalidator_release_payload["tag_name"]
+        ilivalidator_plugin_tag_safe = sanitize_tag_component(ilivalidator_plugin_tag)
         geometry_plugin_zip_path = download_release_asset(
             temp_dir=temp_dir,
             asset=geometry_asset,
@@ -189,6 +218,16 @@ def build_distributions(
             asset=ili2db_transform_asset,
             required_prefix=ILI2DB_TRANSFORM_PLUGIN_PREFIX,
         )
+        ilivalidator_action_zip_path = download_release_asset(
+            temp_dir=temp_dir,
+            asset=ilivalidator_action_asset,
+            required_prefix=ILIVALIDATOR_ACTION_PLUGIN_PREFIX,
+        )
+        ilivalidator_transform_zip_path = download_release_asset(
+            temp_dir=temp_dir,
+            asset=ilivalidator_transform_asset,
+            required_prefix=ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX,
+        )
         artifacts: list[dict[str, str]] = []
 
         for target in targets:
@@ -200,7 +239,8 @@ def build_distributions(
             )
             output_name = (
                 f"apache-hop-client-{hop_version}-hop-plugins-"
-                f"{plugin_tag_safe}-{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-{target}.zip"
+                f"{plugin_tag_safe}-{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-"
+                f"{ilivalidator_plugin_tag_safe}-{target}.zip"
             )
             output_path = output_dir / output_name
             build_distribution_archive(
@@ -218,6 +258,14 @@ def build_distributions(
                     PluginArchive(
                         path=ili2db_transform_zip_path,
                         required_prefix=ILI2DB_TRANSFORM_PLUGIN_PREFIX,
+                    ),
+                    PluginArchive(
+                        path=ilivalidator_action_zip_path,
+                        required_prefix=ILIVALIDATOR_ACTION_PLUGIN_PREFIX,
+                    ),
+                    PluginArchive(
+                        path=ilivalidator_transform_zip_path,
+                        required_prefix=ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX,
                     ),
                 ],
                 output_path=output_path,
@@ -238,16 +286,23 @@ def build_distributions(
             "ili2db_release_tag": ili2db_plugin_tag,
             "ili2db_release_name": ili2db_release_payload.get("name") or ili2db_plugin_tag,
             "ili2db_tag_safe": ili2db_plugin_tag_safe,
+            "ilivalidator_release_tag": ilivalidator_plugin_tag,
+            "ilivalidator_release_name": (
+                ilivalidator_release_payload.get("name") or ilivalidator_plugin_tag
+            ),
+            "ilivalidator_tag_safe": ilivalidator_plugin_tag_safe,
             "targets": targets,
             "artifacts": artifacts,
             "release_tag": (
                 f"hop-{hop_version}-{plugin_tag_safe}-"
-                f"{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-{short_sha}"
+                f"{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-"
+                f"{ilivalidator_plugin_tag_safe}-{short_sha}"
             ),
             "release_name": (
                 f"Apache Hop {hop_version} + hop-gdal-plugin {plugin_tag} "
                 f"+ hop-geometry-inspector-plugin {geometry_plugin_tag} "
-                f"+ hop-ili2db-plugin {ili2db_plugin_tag} ({short_sha})"
+                f"+ hop-ili2db-plugin {ili2db_plugin_tag} "
+                f"+ hop-ilivalidator-plugin {ilivalidator_plugin_tag} ({short_sha})"
             ),
             "commit_sha": get_commit_sha(),
         }

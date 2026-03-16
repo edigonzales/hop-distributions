@@ -36,6 +36,7 @@ jobs:
             --plugin-release latest \
             --geometry-inspector-release latest \
             --ili2db-release latest \
+            --ilivalidator-release latest \
             --output-dir dist
           ls -lah dist
 
@@ -76,6 +77,7 @@ jobs:
               f"hop-gdal-plugin: `{metadata['plugin_release_tag']}`",
               f"hop-geometry-inspector-plugin: `{metadata['geometry_inspector_release_tag']}`",
               f"hop-ili2db-plugin: `{metadata['ili2db_release_tag']}`",
+              f"hop-ilivalidator-plugin: `{metadata['ilivalidator_release_tag']}`",
               "",
               "Assets:",
           ]

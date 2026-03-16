@@ -69,6 +69,8 @@ class BuildHopDistributionTests(unittest.TestCase):
             geometry_zip = temp_dir / "geometry.zip"
             ili2db_action_zip = temp_dir / "ili2db-action.zip"
             ili2db_transform_zip = temp_dir / "ili2db-transform.zip"
+            ilivalidator_action_zip = temp_dir / "ilivalidator-action.zip"
+            ilivalidator_transform_zip = temp_dir / "ilivalidator-transform.zip"
             output_zip = temp_dir / "output.zip"
 
             self.create_hop_zip(hop_zip)
@@ -76,6 +78,8 @@ class BuildHopDistributionTests(unittest.TestCase):
             self.create_geometry_zip(geometry_zip)
             self.create_ili2db_action_zip(ili2db_action_zip)
             self.create_ili2db_transform_zip(ili2db_transform_zip)
+            self.create_ilivalidator_action_zip(ilivalidator_action_zip)
+            self.create_ilivalidator_transform_zip(ilivalidator_transform_zip)
 
             builder.build_distribution_archive(
                 hop_zip_path=hop_zip,
@@ -96,6 +100,14 @@ class BuildHopDistributionTests(unittest.TestCase):
                         path=ili2db_transform_zip,
                         required_prefix=builder.ILI2DB_TRANSFORM_PLUGIN_PREFIX,
                     ),
+                    builder.PluginArchive(
+                        path=ilivalidator_action_zip,
+                        required_prefix=builder.ILIVALIDATOR_ACTION_PLUGIN_PREFIX,
+                    ),
+                    builder.PluginArchive(
+                        path=ilivalidator_transform_zip,
+                        required_prefix=builder.ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX,
+                    ),
                 ],
                 output_path=output_zip,
             )
@@ -110,6 +122,14 @@ class BuildHopDistributionTests(unittest.TestCase):
                 )
                 self.assertIn("hop/plugins/actions/ili2db/hop-action-ili2db.jar", names)
                 self.assertIn("hop/plugins/transforms/ili2db/hop-transform-ili2db.jar", names)
+                self.assertIn(
+                    "hop/plugins/actions/ilivalidator/hop-action-ilivalidator.jar",
+                    names,
+                )
+                self.assertIn(
+                    "hop/plugins/transforms/ilivalidator/hop-transform-ilivalidator.jar",
+                    names,
+                )
                 mode = (archive.getinfo("hop/hop-gui.sh").external_attr >> 16) & 0o777
                 self.assertEqual(0o755, mode)
 
@@ -220,6 +240,70 @@ class BuildHopDistributionTests(unittest.TestCase):
                 repo_name=builder.ILI2DB_PLUGIN_REPO,
             )
 
+    def test_select_single_zip_asset_returns_ilivalidator_action_archive(self) -> None:
+        release_payload = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "hop-action-ilivalidator-1.2.3.zip",
+                    "browser_download_url": "https://example.test/ilivalidator-action.zip",
+                },
+                {
+                    "name": "hop-transform-ilivalidator-1.2.3.zip",
+                    "browser_download_url": "https://example.test/ilivalidator-transform.zip",
+                },
+            ],
+        }
+
+        asset = builder.select_single_zip_asset(
+            release_payload,
+            asset_prefix=builder.ILIVALIDATOR_ACTION_ASSET_PREFIX,
+            repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
+        )
+
+        self.assertEqual("hop-action-ilivalidator-1.2.3.zip", asset.name)
+        self.assertEqual("generic", asset.target)
+
+    def test_select_single_zip_asset_rejects_duplicate_ilivalidator_action_assets(self) -> None:
+        release_payload = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "hop-action-ilivalidator-1.2.3.zip",
+                    "browser_download_url": "https://example.test/ilivalidator-action-1.zip",
+                },
+                {
+                    "name": "hop-action-ilivalidator-1.2.4.zip",
+                    "browser_download_url": "https://example.test/ilivalidator-action-2.zip",
+                },
+            ],
+        }
+
+        with self.assertRaises(builder.BuildError):
+            builder.select_single_zip_asset(
+                release_payload,
+                asset_prefix=builder.ILIVALIDATOR_ACTION_ASSET_PREFIX,
+                repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
+            )
+
+    def test_select_single_zip_asset_rejects_missing_ilivalidator_transform_asset(self) -> None:
+        release_payload = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "hop-action-ilivalidator-1.2.3.zip",
+                    "browser_download_url": "https://example.test/ilivalidator-action.zip",
+                }
+            ],
+        }
+
+        with self.assertRaises(builder.BuildError):
+            builder.select_single_zip_asset(
+                release_payload,
+                asset_prefix=builder.ILIVALIDATOR_TRANSFORM_ASSET_PREFIX,
+                repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
+            )
+
     def create_hop_zip(self, path: Path) -> None:
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr(self.dir_info("hop/"), b"")
@@ -261,6 +345,28 @@ class BuildHopDistributionTests(unittest.TestCase):
             archive.writestr(
                 self.file_info("plugins/transforms/ili2db/hop-transform-ili2db.jar", 0o644),
                 b"ili2db-transform",
+            )
+
+    def create_ilivalidator_action_zip(self, path: Path) -> None:
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(self.dir_info("plugins/actions/ilivalidator/"), b"")
+            archive.writestr(
+                self.file_info(
+                    "plugins/actions/ilivalidator/hop-action-ilivalidator.jar",
+                    0o644,
+                ),
+                b"ilivalidator-action",
+            )
+
+    def create_ilivalidator_transform_zip(self, path: Path) -> None:
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(self.dir_info("plugins/transforms/ilivalidator/"), b"")
+            archive.writestr(
+                self.file_info(
+                    "plugins/transforms/ilivalidator/hop-transform-ilivalidator.jar",
+                    0o644,
+                ),
+                b"ilivalidator-transform",
             )
 
     def dir_info(self, name: str) -> zipfile.ZipInfo:
