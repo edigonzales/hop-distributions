@@ -67,6 +67,7 @@ class BuildHopDistributionTests(unittest.TestCase):
             hop_zip = temp_dir / "hop.zip"
             suite_zip = temp_dir / "suite.zip"
             geometry_zip = temp_dir / "geometry.zip"
+            geoprocessing_zip = temp_dir / "geoprocessing.zip"
             ili2db_action_zip = temp_dir / "ili2db-action.zip"
             ili2db_transform_zip = temp_dir / "ili2db-transform.zip"
             ilivalidator_action_zip = temp_dir / "ilivalidator-action.zip"
@@ -76,6 +77,7 @@ class BuildHopDistributionTests(unittest.TestCase):
             self.create_hop_zip(hop_zip)
             self.create_suite_zip(suite_zip)
             self.create_geometry_zip(geometry_zip)
+            self.create_geoprocessing_zip(geoprocessing_zip)
             self.create_ili2db_action_zip(ili2db_action_zip)
             self.create_ili2db_transform_zip(ili2db_transform_zip)
             self.create_ilivalidator_action_zip(ilivalidator_action_zip)
@@ -91,6 +93,10 @@ class BuildHopDistributionTests(unittest.TestCase):
                     builder.PluginArchive(
                         path=geometry_zip,
                         required_prefix=builder.GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
+                    ),
+                    builder.PluginArchive(
+                        path=geoprocessing_zip,
+                        required_prefix=builder.GEOPROCESSING_PLUGIN_PREFIX,
                     ),
                     builder.PluginArchive(
                         path=ili2db_action_zip,
@@ -118,6 +124,10 @@ class BuildHopDistributionTests(unittest.TestCase):
                 self.assertIn("hop/plugins/transforms/ogr-vector/plugin.jar", names)
                 self.assertIn(
                     "hop/plugins/misc/hop-geometry-inspector/geometry-inspector.jar",
+                    names,
+                )
+                self.assertIn(
+                    "hop/plugins/transforms/hop-geoprocessing/geoprocessing.jar",
                     names,
                 )
                 self.assertIn("hop/plugins/actions/ili2db/hop-action-ili2db.jar", names)
@@ -198,6 +208,26 @@ class BuildHopDistributionTests(unittest.TestCase):
         )
 
         self.assertEqual("hop-action-ili2db-1.2.3.zip", asset.name)
+        self.assertEqual("generic", asset.target)
+
+    def test_select_single_zip_asset_returns_geoprocessing_archive(self) -> None:
+        release_payload = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "hop-geoprocessing-plugin-1.2.3.zip",
+                    "browser_download_url": "https://example.test/geoprocessing.zip",
+                }
+            ],
+        }
+
+        asset = builder.select_single_zip_asset(
+            release_payload,
+            asset_prefix=builder.GEOPROCESSING_ASSET_PREFIX,
+            repo_name=builder.GEOPROCESSING_PLUGIN_REPO,
+        )
+
+        self.assertEqual("hop-geoprocessing-plugin-1.2.3.zip", asset.name)
         self.assertEqual("generic", asset.target)
 
     def test_select_single_zip_asset_requires_exactly_one_match(self) -> None:
@@ -304,6 +334,46 @@ class BuildHopDistributionTests(unittest.TestCase):
                 repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
             )
 
+    def test_select_single_zip_asset_rejects_duplicate_geoprocessing_assets(self) -> None:
+        release_payload = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "hop-geoprocessing-plugin-1.2.3.zip",
+                    "browser_download_url": "https://example.test/geoprocessing-1.zip",
+                },
+                {
+                    "name": "hop-geoprocessing-plugin-1.2.4.zip",
+                    "browser_download_url": "https://example.test/geoprocessing-2.zip",
+                },
+            ],
+        }
+
+        with self.assertRaises(builder.BuildError):
+            builder.select_single_zip_asset(
+                release_payload,
+                asset_prefix=builder.GEOPROCESSING_ASSET_PREFIX,
+                repo_name=builder.GEOPROCESSING_PLUGIN_REPO,
+            )
+
+    def test_select_single_zip_asset_rejects_missing_geoprocessing_asset(self) -> None:
+        release_payload = {
+            "tag_name": "v1.2.3",
+            "assets": [
+                {
+                    "name": "notes.txt",
+                    "browser_download_url": "https://example.test/notes.txt",
+                }
+            ],
+        }
+
+        with self.assertRaises(builder.BuildError):
+            builder.select_single_zip_asset(
+                release_payload,
+                asset_prefix=builder.GEOPROCESSING_ASSET_PREFIX,
+                repo_name=builder.GEOPROCESSING_PLUGIN_REPO,
+            )
+
     def create_hop_zip(self, path: Path) -> None:
         with zipfile.ZipFile(path, "w") as archive:
             archive.writestr(self.dir_info("hop/"), b"")
@@ -337,6 +407,17 @@ class BuildHopDistributionTests(unittest.TestCase):
             archive.writestr(
                 self.file_info("plugins/actions/ili2db/hop-action-ili2db.jar", 0o644),
                 b"ili2db-action",
+            )
+
+    def create_geoprocessing_zip(self, path: Path) -> None:
+        with zipfile.ZipFile(path, "w") as archive:
+            archive.writestr(self.dir_info("plugins/transforms/hop-geoprocessing/"), b"")
+            archive.writestr(
+                self.file_info(
+                    "plugins/transforms/hop-geoprocessing/geoprocessing.jar",
+                    0o644,
+                ),
+                b"geoprocessing",
             )
 
     def create_ili2db_transform_zip(self, path: Path) -> None:
