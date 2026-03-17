@@ -30,13 +30,15 @@ Builds Apache Hop 2.17.0 client distributions with the `hop-gdal-plugin` vector 
 Generated archives use this pattern:
 
 ```text
-apache-hop-client-2.17.0-hop-plugins-<gdal_tag_safe>-<geometry_inspector_tag_safe>-<ili2db_tag_safe>-<ilivalidator_tag_safe>-<geoprocessing_tag_safe>-<target>.zip
+apache-hop-client-2.17.0-hop-plugins-<gdal_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<target>.zip
 ```
+
+The `*_tag_id` parts are compact, filename-safe identifiers derived from the full plugin release tags.
 
 The release tag uses this pattern:
 
 ```text
-hop-2.17.0-<gdal_tag_safe>-<geometry_inspector_tag_safe>-<ili2db_tag_safe>-<ilivalidator_tag_safe>-<geoprocessing_tag_safe>-<sha7>
+hop-2.17.0-<gdal_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<sha7>
 ```
 
 ## Local usage

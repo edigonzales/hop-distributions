@@ -45,6 +45,7 @@ ILIVALIDATOR_ACTION_ASSET_PREFIX = "hop-action-ilivalidator-"
 ILIVALIDATOR_ACTION_PLUGIN_PREFIX = "plugins/actions/ilivalidator/"
 ILIVALIDATOR_TRANSFORM_ASSET_PREFIX = "hop-transform-ilivalidator-"
 ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX = "plugins/transforms/ilivalidator/"
+MAX_TAG_ID_LENGTH = 24
 
 
 class BuildError(RuntimeError):
@@ -215,15 +216,15 @@ def build_distributions(
         )
 
         plugin_tag = gdal_release_payload["tag_name"]
-        plugin_tag_safe = sanitize_tag_component(plugin_tag)
+        plugin_tag_safe = compact_tag_component(plugin_tag)
         geometry_plugin_tag = geometry_release_payload["tag_name"]
-        geometry_plugin_tag_safe = sanitize_tag_component(geometry_plugin_tag)
+        geometry_plugin_tag_safe = compact_tag_component(geometry_plugin_tag)
         geoprocessing_plugin_tag = geoprocessing_release_payload["tag_name"]
-        geoprocessing_plugin_tag_safe = sanitize_tag_component(geoprocessing_plugin_tag)
+        geoprocessing_plugin_tag_safe = compact_tag_component(geoprocessing_plugin_tag)
         ili2db_plugin_tag = ili2db_release_payload["tag_name"]
-        ili2db_plugin_tag_safe = sanitize_tag_component(ili2db_plugin_tag)
+        ili2db_plugin_tag_safe = compact_tag_component(ili2db_plugin_tag)
         ilivalidator_plugin_tag = ilivalidator_release_payload["tag_name"]
-        ilivalidator_plugin_tag_safe = sanitize_tag_component(ilivalidator_plugin_tag)
+        ilivalidator_plugin_tag_safe = compact_tag_component(ilivalidator_plugin_tag)
         geometry_plugin_zip_path = download_release_asset(
             temp_dir=temp_dir,
             asset=geometry_asset,
@@ -358,6 +359,23 @@ def sanitize_tag_component(value: str) -> str:
     if not sanitized:
         raise BuildError(f"Could not derive a safe identifier from '{value}'.")
     return sanitized
+
+
+def compact_tag_component(value: str) -> str:
+    sanitized = sanitize_tag_component(value)
+    if len(sanitized) <= MAX_TAG_ID_LENGTH:
+        return sanitized
+
+    match = re.search(r"-([0-9a-fA-F]{7,12})$", sanitized)
+    if match:
+        return match.group(1).lower()
+
+    digest = hashlib.sha1(sanitized.encode("utf-8")).hexdigest()[:8]
+    prefix_length = MAX_TAG_ID_LENGTH - len(digest) - 1
+    prefix = sanitized[:prefix_length].rstrip("-")
+    if not prefix:
+        prefix = sanitized[:prefix_length]
+    return f"{prefix}-{digest}"
 
 
 def fetch_github_release(repo_name: str, release_name: str) -> dict:

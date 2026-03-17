@@ -61,6 +61,20 @@ class BuildHopDistributionTests(unittest.TestCase):
         with self.assertRaises(builder.BuildError):
             builder.select_vector_suite_assets(release_payload)
 
+    def test_compact_tag_component_keeps_short_tag(self) -> None:
+        self.assertEqual("v1.2.3", builder.compact_tag_component("v1.2.3"))
+
+    def test_compact_tag_component_uses_trailing_hash_for_long_auto_release_tag(self) -> None:
+        self.assertEqual(
+            "97ff5c8",
+            builder.compact_tag_component("auto-v0.1.0-SNAPSHOT-20260317-1648-97ff5c8"),
+        )
+
+    def test_compact_tag_component_truncates_non_hash_long_tag(self) -> None:
+        compact = builder.compact_tag_component("release-name-without-commit-hash-but-still-very-long")
+        self.assertLessEqual(len(compact), builder.MAX_TAG_ID_LENGTH)
+        self.assertRegex(compact, r"^[0-9A-Za-z._-]+$")
+
     def test_build_distribution_archive_merges_plugin_and_preserves_permissions(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hop-dist-test-") as temp_dir_name:
             temp_dir = Path(temp_dir_name)
