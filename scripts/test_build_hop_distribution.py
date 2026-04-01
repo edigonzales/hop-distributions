@@ -22,12 +22,12 @@ builder = load_module()
 
 
 class BuildHopDistributionTests(unittest.TestCase):
-    def test_select_vector_suite_assets_returns_all_targets(self) -> None:
+    def test_select_gdal_suite_assets_returns_all_targets(self) -> None:
         release_payload = {
             "tag_name": "v1.2.3",
             "assets": [
                 {
-                    "name": f"hop-vector-suite-1.2.3-{target}.zip",
+                    "name": f"hop-gdal-suite-1.2.3-{target}.zip",
                     "browser_download_url": f"https://example.test/{target}.zip",
                 }
                 for target in builder.SUPPORTED_TARGETS
@@ -40,17 +40,17 @@ class BuildHopDistributionTests(unittest.TestCase):
             ],
         }
 
-        assets = builder.select_vector_suite_assets(release_payload)
+        assets = builder.select_gdal_suite_assets(release_payload)
 
         self.assertEqual(set(builder.SUPPORTED_TARGETS), set(assets.keys()))
         self.assertEqual("linux-x86_64", assets["linux-x86_64"].target)
 
-    def test_select_vector_suite_assets_requires_all_targets(self) -> None:
+    def test_select_gdal_suite_assets_requires_all_targets(self) -> None:
         release_payload = {
             "tag_name": "v1.2.3",
             "assets": [
                 {
-                    "name": f"hop-vector-suite-1.2.3-{target}.zip",
+                    "name": f"hop-gdal-suite-1.2.3-{target}.zip",
                     "browser_download_url": f"https://example.test/{target}.zip",
                 }
                 for target in builder.SUPPORTED_TARGETS
@@ -59,7 +59,7 @@ class BuildHopDistributionTests(unittest.TestCase):
         }
 
         with self.assertRaises(builder.BuildError):
-            builder.select_vector_suite_assets(release_payload)
+            builder.select_gdal_suite_assets(release_payload)
 
     def test_compact_tag_component_keeps_short_tag(self) -> None:
         self.assertEqual("v1.2.3", builder.compact_tag_component("v1.2.3"))
@@ -102,7 +102,7 @@ class BuildHopDistributionTests(unittest.TestCase):
                 plugin_archives=[
                     builder.PluginArchive(
                         path=suite_zip,
-                        required_prefix=builder.VECTOR_PLUGIN_PREFIX,
+                        required_prefix=builder.GDAL_PLUGIN_PREFIX,
                     ),
                     builder.PluginArchive(
                         path=geometry_zip,
@@ -135,7 +135,14 @@ class BuildHopDistributionTests(unittest.TestCase):
             with zipfile.ZipFile(output_zip) as archive:
                 names = archive.namelist()
                 self.assertIn("hop/lib/core.jar", names)
-                self.assertIn("hop/plugins/transforms/ogr-vector/plugin.jar", names)
+                self.assertIn(
+                    "hop/plugins/transforms/gdal-suite/hop-transform-ogr-reader.jar",
+                    names,
+                )
+                self.assertIn(
+                    "hop/plugins/transforms/gdal-suite/hop-transform-gdal-raster-info.jar",
+                    names,
+                )
                 self.assertIn(
                     "hop/plugins/misc/hop-geometry-inspector/geometry-inspector.jar",
                     names,
@@ -156,6 +163,46 @@ class BuildHopDistributionTests(unittest.TestCase):
                 )
                 mode = (archive.getinfo("hop/hop-gui.sh").external_attr >> 16) & 0o777
                 self.assertEqual(0o755, mode)
+
+    def test_build_distribution_archive_merges_gdal_suite_vector_and_raster_transforms(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="hop-dist-test-") as temp_dir_name:
+            temp_dir = Path(temp_dir_name)
+            hop_zip = temp_dir / "hop.zip"
+            suite_zip = temp_dir / "suite.zip"
+            output_zip = temp_dir / "output.zip"
+
+            self.create_hop_zip(hop_zip)
+            self.create_suite_zip(suite_zip)
+
+            builder.build_distribution_archive(
+                hop_zip_path=hop_zip,
+                plugin_archives=[
+                    builder.PluginArchive(
+                        path=suite_zip,
+                        required_prefix=builder.GDAL_PLUGIN_PREFIX,
+                    )
+                ],
+                output_path=output_zip,
+            )
+
+            with zipfile.ZipFile(output_zip) as archive:
+                names = archive.namelist()
+                self.assertIn(
+                    "hop/plugins/transforms/gdal-suite/hop-transform-ogr-reader.jar",
+                    names,
+                )
+                self.assertIn(
+                    "hop/plugins/transforms/gdal-suite/hop-transform-ogr-exporter.jar",
+                    names,
+                )
+                self.assertIn(
+                    "hop/plugins/transforms/gdal-suite/hop-transform-gdal-raster-info.jar",
+                    names,
+                )
+                self.assertIn(
+                    "hop/plugins/transforms/gdal-suite/hop-transform-gdal-raster-clip.jar",
+                    names,
+                )
 
     def test_build_distribution_archive_rejects_missing_plugin_directory(self) -> None:
         with tempfile.TemporaryDirectory(prefix="hop-dist-test-") as temp_dir_name:
@@ -398,10 +445,33 @@ class BuildHopDistributionTests(unittest.TestCase):
 
     def create_suite_zip(self, path: Path) -> None:
         with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/transforms/ogr-vector/"), b"")
+            archive.writestr(self.dir_info("plugins/transforms/gdal-suite/"), b"")
+            archive.writestr(self.dir_info("plugins/transforms/gdal-suite/lib/"), b"")
             archive.writestr(
-                self.file_info("plugins/transforms/ogr-vector/plugin.jar", 0o644),
-                b"plugin",
+                self.file_info("plugins/transforms/gdal-suite/hop-transform-ogr-reader.jar", 0o644),
+                b"ogr-reader",
+            )
+            archive.writestr(
+                self.file_info("plugins/transforms/gdal-suite/hop-transform-ogr-exporter.jar", 0o644),
+                b"ogr-exporter",
+            )
+            archive.writestr(
+                self.file_info(
+                    "plugins/transforms/gdal-suite/hop-transform-gdal-raster-info.jar",
+                    0o644,
+                ),
+                b"raster-info",
+            )
+            archive.writestr(
+                self.file_info(
+                    "plugins/transforms/gdal-suite/hop-transform-gdal-raster-clip.jar",
+                    0o644,
+                ),
+                b"raster-clip",
+            )
+            archive.writestr(
+                self.file_info("plugins/transforms/gdal-suite/lib/hop-ogr-core.jar", 0o644),
+                b"core-lib",
             )
 
     def create_geometry_zip(self, path: Path) -> None:

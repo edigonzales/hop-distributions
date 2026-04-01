@@ -31,8 +31,8 @@ ILIVALIDATOR_PLUGIN_REPO = "edigonzales/hop-ilivalidator-plugin"
 GEOPROCESSING_PLUGIN_REPO = "edigonzales/hop-geoprocessing-plugin"
 APACHE_HOP_DOWNLOAD_BASE = "https://downloads.apache.org/hop"
 USER_AGENT = "hop-distributions-builder/1.0"
-VECTOR_SUITE_PREFIX = "hop-vector-suite-"
-VECTOR_PLUGIN_PREFIX = "plugins/transforms/ogr-vector/"
+GDAL_SUITE_PREFIX = "hop-gdal-suite-"
+GDAL_PLUGIN_PREFIX = "plugins/transforms/gdal-suite/"
 GEOMETRY_INSPECTOR_ASSET_PREFIX = "hop-geometry-inspector-plugin-"
 GEOMETRY_INSPECTOR_PLUGIN_PREFIX = "plugins/misc/hop-geometry-inspector/"
 GEOPROCESSING_ASSET_PREFIX = "hop-geoprocessing-plugin-"
@@ -68,7 +68,7 @@ class PluginArchive:
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Build an Apache Hop client distribution with the hop-gdal-plugin suite "
+            "Build an Apache Hop client distribution with the hop-gdal-plugin gdal suite "
             "plus hop-geometry-inspector-plugin, hop-geoprocessing-plugin, "
             "hop-ili2db-plugin, and hop-ilivalidator-plugin merged in."
         )
@@ -167,7 +167,7 @@ def build_distributions(
         temp_dir = Path(temp_dir_name)
         hop_zip_path = download_hop_archive(temp_dir=temp_dir, hop_version=hop_version)
         gdal_release_payload = fetch_github_release(GDAL_PLUGIN_REPO, plugin_release)
-        assets_by_target = select_vector_suite_assets(gdal_release_payload)
+        gdal_assets_by_target = select_gdal_suite_assets(gdal_release_payload)
         geometry_release_payload = fetch_github_release(
             GEOMETRY_INSPECTOR_REPO,
             geometry_inspector_release,
@@ -258,11 +258,11 @@ def build_distributions(
         artifacts: list[dict[str, str]] = []
 
         for target in targets:
-            suite_asset = assets_by_target[target]
+            suite_asset = gdal_assets_by_target[target]
             suite_zip_path = download_release_asset(
                 temp_dir=temp_dir,
                 asset=suite_asset,
-                required_prefix=VECTOR_PLUGIN_PREFIX,
+                required_prefix=GDAL_PLUGIN_PREFIX,
             )
             output_name = (
                 f"apache-hop-client-{hop_version}-hop-plugins-"
@@ -273,7 +273,7 @@ def build_distributions(
             build_distribution_archive(
                 hop_zip_path=hop_zip_path,
                 plugin_archives=[
-                    PluginArchive(path=suite_zip_path, required_prefix=VECTOR_PLUGIN_PREFIX),
+                    PluginArchive(path=suite_zip_path, required_prefix=GDAL_PLUGIN_PREFIX),
                     PluginArchive(
                         path=geometry_plugin_zip_path,
                         required_prefix=GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
@@ -402,7 +402,7 @@ def fetch_github_release(repo_name: str, release_name: str) -> dict:
     return payload
 
 
-def select_vector_suite_assets(release_payload: dict) -> dict[str, ReleaseAsset]:
+def select_gdal_suite_assets(release_payload: dict) -> dict[str, ReleaseAsset]:
     assets_by_target: dict[str, ReleaseAsset] = {}
     for raw_asset in release_payload.get("assets", []):
         name = raw_asset.get("name")
@@ -412,7 +412,7 @@ def select_vector_suite_assets(release_payload: dict) -> dict[str, ReleaseAsset]
 
         matched_target = None
         for target in SUPPORTED_TARGETS:
-            if name.startswith(VECTOR_SUITE_PREFIX) and name.endswith(f"-{target}.zip"):
+            if name.startswith(GDAL_SUITE_PREFIX) and name.endswith(f"-{target}.zip"):
                 matched_target = target
                 break
 

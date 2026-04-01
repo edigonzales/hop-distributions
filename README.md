@@ -1,6 +1,6 @@
 # hop-distributions
 
-Builds Apache Hop 2.17.0 client distributions with the `hop-gdal-plugin` vector suite, the `hop-geometry-inspector-plugin`, the `hop-geoprocessing-plugin`, the `hop-ili2db-plugin`, and the `hop-ilivalidator-plugin` merged in.
+Builds Apache Hop 2.17.0 client distributions with the `hop-gdal-plugin` gdal suite, the `hop-geometry-inspector-plugin`, the `hop-geoprocessing-plugin`, the `hop-ili2db-plugin`, and the `hop-ilivalidator-plugin` merged in.
 
 ## What it does
 
@@ -13,7 +13,7 @@ Builds Apache Hop 2.17.0 client distributions with the `hop-gdal-plugin` vector 
 - Resolves the latest public `edigonzales/hop-geoprocessing-plugin` release
 - Resolves the latest public `edigonzales/hop-ili2db-plugin` release
 - Resolves the latest public `edigonzales/hop-ilivalidator-plugin` release
-- Merges the matching `hop-vector-suite-<version>-<target>.zip` into Hop for:
+- Merges the matching `hop-gdal-suite-<version>-<target>.zip` into Hop for:
   - `linux-x86_64`
   - `linux-aarch64`
   - `osx-x86_64`
@@ -60,7 +60,7 @@ Use `--target` one or more times to build only specific classifiers.
 
 The workflow expects public, non-draft GitHub releases in:
 
-- `edigonzales/hop-gdal-plugin`, containing all five `hop-vector-suite-...zip` assets
+- `edigonzales/hop-gdal-plugin`, containing all five `hop-gdal-suite-...zip` assets
 - `edigonzales/hop-geometry-inspector-plugin`, containing exactly one `hop-geometry-inspector-plugin-...zip` asset
 - `edigonzales/hop-geoprocessing-plugin`, containing exactly one `hop-geoprocessing-plugin-...zip` asset
 - `edigonzales/hop-ili2db-plugin`, containing exactly one `hop-action-ili2db-...zip` asset and one `hop-transform-ili2db-...zip` asset
