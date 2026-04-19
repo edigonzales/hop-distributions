@@ -36,6 +36,7 @@ jobs:
             --plugin-release latest \
             --geometry-inspector-release latest \
             --geoprocessing-release latest \
+            --geometry-calculator-release latest \
             --ili2db-release latest \
             --ilivalidator-release latest \
             --output-dir dist
@@ -80,6 +81,7 @@ jobs:
               f"hop-ili2db-plugin: `{metadata['ili2db_release_tag']}`",
               f"hop-ilivalidator-plugin: `{metadata['ilivalidator_release_tag']}`",
               f"hop-geoprocessing-plugin: `{metadata['geoprocessing_release_tag']}`",
+              f"hop-geometry-calculator-plugin: `{metadata['geometry_calculator_release_tag']}`",
               "",
               "Assets:",
           ]

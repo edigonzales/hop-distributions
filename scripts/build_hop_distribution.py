@@ -29,6 +29,7 @@ GEOMETRY_INSPECTOR_REPO = "edigonzales/hop-geometry-inspector-plugin"
 ILI2DB_PLUGIN_REPO = "edigonzales/hop-ili2db-plugin"
 ILIVALIDATOR_PLUGIN_REPO = "edigonzales/hop-ilivalidator-plugin"
 GEOPROCESSING_PLUGIN_REPO = "edigonzales/hop-geoprocessing-plugin"
+GEOMETRY_CALCULATOR_PLUGIN_REPO = "edigonzales/hop-geometry-calculator-plugin"
 APACHE_HOP_DOWNLOAD_BASE = "https://downloads.apache.org/hop"
 USER_AGENT = "hop-distributions-builder/1.0"
 GDAL_SUITE_PREFIX = "hop-gdal-suite-"
@@ -37,6 +38,8 @@ GEOMETRY_INSPECTOR_ASSET_PREFIX = "hop-geometry-inspector-plugin-"
 GEOMETRY_INSPECTOR_PLUGIN_PREFIX = "plugins/misc/hop-geometry-inspector/"
 GEOPROCESSING_ASSET_PREFIX = "hop-geoprocessing-plugin-"
 GEOPROCESSING_PLUGIN_PREFIX = "plugins/transforms/hop-geoprocessing/"
+GEOMETRY_CALCULATOR_ASSET_PREFIX = "hop-geometry-calculator-plugin-"
+GEOMETRY_CALCULATOR_PLUGIN_PREFIX = "plugins/transforms/hop-geometry-calculator/"
 ILI2DB_ACTION_ASSET_PREFIX = "hop-action-ili2db-"
 ILI2DB_ACTION_PLUGIN_PREFIX = "plugins/actions/ili2db/"
 ILI2DB_TRANSFORM_ASSET_PREFIX = "hop-transform-ili2db-"
@@ -70,7 +73,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description=(
             "Build an Apache Hop client distribution with the hop-gdal-plugin gdal suite "
             "plus hop-geometry-inspector-plugin, hop-geoprocessing-plugin, "
-            "hop-ili2db-plugin, and hop-ilivalidator-plugin merged in."
+            "hop-geometry-calculator-plugin, hop-ili2db-plugin, "
+            "and hop-ilivalidator-plugin merged in."
         )
     )
     parser.add_argument("--hop-version", required=True, help="Apache Hop version, for example 2.17.0.")
@@ -88,6 +92,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--geoprocessing-release",
         default="latest",
         help="hop-geoprocessing-plugin release tag to use, or 'latest' (default).",
+    )
+    parser.add_argument(
+        "--geometry-calculator-release",
+        default="latest",
+        help="hop-geometry-calculator-plugin release tag to use, or 'latest' (default).",
     )
     parser.add_argument(
         "--ili2db-release",
@@ -127,6 +136,7 @@ def main(argv: list[str] | None = None) -> int:
             plugin_release=args.plugin_release,
             geometry_inspector_release=args.geometry_inspector_release,
             geoprocessing_release=args.geoprocessing_release,
+            geometry_calculator_release=args.geometry_calculator_release,
             ili2db_release=args.ili2db_release,
             ilivalidator_release=args.ilivalidator_release,
             targets=targets,
@@ -158,6 +168,7 @@ def build_distributions(
     plugin_release: str,
     geometry_inspector_release: str,
     geoprocessing_release: str,
+    geometry_calculator_release: str,
     ili2db_release: str,
     ilivalidator_release: str,
     targets: list[str],
@@ -185,6 +196,15 @@ def build_distributions(
             geoprocessing_release_payload,
             asset_prefix=GEOPROCESSING_ASSET_PREFIX,
             repo_name=GEOPROCESSING_PLUGIN_REPO,
+        )
+        geometry_calculator_release_payload = fetch_github_release(
+            GEOMETRY_CALCULATOR_PLUGIN_REPO,
+            geometry_calculator_release,
+        )
+        geometry_calculator_asset = select_single_zip_asset(
+            geometry_calculator_release_payload,
+            asset_prefix=GEOMETRY_CALCULATOR_ASSET_PREFIX,
+            repo_name=GEOMETRY_CALCULATOR_PLUGIN_REPO,
         )
         ili2db_release_payload = fetch_github_release(
             ILI2DB_PLUGIN_REPO,
@@ -221,6 +241,8 @@ def build_distributions(
         geometry_plugin_tag_safe = compact_tag_component(geometry_plugin_tag)
         geoprocessing_plugin_tag = geoprocessing_release_payload["tag_name"]
         geoprocessing_plugin_tag_safe = compact_tag_component(geoprocessing_plugin_tag)
+        geometry_calculator_plugin_tag = geometry_calculator_release_payload["tag_name"]
+        geometry_calculator_plugin_tag_safe = compact_tag_component(geometry_calculator_plugin_tag)
         ili2db_plugin_tag = ili2db_release_payload["tag_name"]
         ili2db_plugin_tag_safe = compact_tag_component(ili2db_plugin_tag)
         ilivalidator_plugin_tag = ilivalidator_release_payload["tag_name"]
@@ -234,6 +256,11 @@ def build_distributions(
             temp_dir=temp_dir,
             asset=geoprocessing_asset,
             required_prefix=GEOPROCESSING_PLUGIN_PREFIX,
+        )
+        geometry_calculator_plugin_zip_path = download_release_asset(
+            temp_dir=temp_dir,
+            asset=geometry_calculator_asset,
+            required_prefix=GEOMETRY_CALCULATOR_PLUGIN_PREFIX,
         )
         ili2db_action_zip_path = download_release_asset(
             temp_dir=temp_dir,
@@ -267,7 +294,8 @@ def build_distributions(
             output_name = (
                 f"apache-hop-client-{hop_version}-hop-plugins-"
                 f"{plugin_tag_safe}-{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-"
-                f"{ilivalidator_plugin_tag_safe}-{geoprocessing_plugin_tag_safe}-{target}.zip"
+                f"{ilivalidator_plugin_tag_safe}-{geoprocessing_plugin_tag_safe}-"
+                f"{geometry_calculator_plugin_tag_safe}-{target}.zip"
             )
             output_path = output_dir / output_name
             build_distribution_archive(
@@ -298,6 +326,10 @@ def build_distributions(
                         path=geoprocessing_plugin_zip_path,
                         required_prefix=GEOPROCESSING_PLUGIN_PREFIX,
                     ),
+                    PluginArchive(
+                        path=geometry_calculator_plugin_zip_path,
+                        required_prefix=GEOMETRY_CALCULATOR_PLUGIN_PREFIX,
+                    ),
                 ],
                 output_path=output_path,
             )
@@ -319,6 +351,11 @@ def build_distributions(
                 geoprocessing_release_payload.get("name") or geoprocessing_plugin_tag
             ),
             "geoprocessing_tag_safe": geoprocessing_plugin_tag_safe,
+            "geometry_calculator_release_tag": geometry_calculator_plugin_tag,
+            "geometry_calculator_release_name": (
+                geometry_calculator_release_payload.get("name") or geometry_calculator_plugin_tag
+            ),
+            "geometry_calculator_tag_safe": geometry_calculator_plugin_tag_safe,
             "ili2db_release_tag": ili2db_plugin_tag,
             "ili2db_release_name": ili2db_release_payload.get("name") or ili2db_plugin_tag,
             "ili2db_tag_safe": ili2db_plugin_tag_safe,
@@ -332,14 +369,16 @@ def build_distributions(
             "release_tag": (
                 f"hop-{hop_version}-{plugin_tag_safe}-"
                 f"{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-"
-                f"{ilivalidator_plugin_tag_safe}-{geoprocessing_plugin_tag_safe}-{short_sha}"
+                f"{ilivalidator_plugin_tag_safe}-{geoprocessing_plugin_tag_safe}-"
+                f"{geometry_calculator_plugin_tag_safe}-{short_sha}"
             ),
             "release_name": (
                 f"Apache Hop {hop_version} + hop-gdal-plugin {plugin_tag} "
                 f"+ hop-geometry-inspector-plugin {geometry_plugin_tag} "
                 f"+ hop-ili2db-plugin {ili2db_plugin_tag} "
                 f"+ hop-ilivalidator-plugin {ilivalidator_plugin_tag} "
-                f"+ hop-geoprocessing-plugin {geoprocessing_plugin_tag} ({short_sha})"
+                f"+ hop-geoprocessing-plugin {geoprocessing_plugin_tag} "
+                f"+ hop-geometry-calculator-plugin {geometry_calculator_plugin_tag} ({short_sha})"
             ),
             "commit_sha": get_commit_sha(),
         }
