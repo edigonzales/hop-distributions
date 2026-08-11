@@ -1,0 +1,16 @@
+{
+  "type": "FeatureCollection",
+  "name": "ogr_smoke",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Solothurn"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [7.537, 47.208]
+      }
+    }
+  ]
+}
