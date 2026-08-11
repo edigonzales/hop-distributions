@@ -50,6 +50,11 @@ jobs:
             --output-dir dist
           ls -lah dist
 
+      - name: Enable FFM native access in Hop launchers
+        run: |
+          set -euo pipefail
+          python3 scripts/patch_hop_launchers.py dist/*.zip
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
