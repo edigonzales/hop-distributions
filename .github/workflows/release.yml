@@ -39,7 +39,7 @@ jobs:
             target_args+=(--target windows-x86_64)
           fi
           python3 scripts/build_hop_distribution.py \
-            --hop-version 2.17.0 \
+            --hop-version 2.18.1 \
             --plugin-release latest \
             --geometry-inspector-release latest \
             --geoprocessing-release latest \
