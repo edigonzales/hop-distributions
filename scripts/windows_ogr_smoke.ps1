@@ -73,7 +73,7 @@ Push-Location $hopRun.Directory.FullName
 try {
   foreach ($attempt in 1..2) {
     $logPath = Join-Path $workDir "hop-run-$attempt.log"
-    Write-Host "Running OGR smoke attempt $attempt with shared java.io.tmpdir=$nativeTempDir"
+    Write-Host "Running OGR -> Geometry Calculator smoke attempt $attempt with shared java.io.tmpdir=$nativeTempDir"
 
     $output = & $hopRun.FullName -r local -f $pipelinePath -l BASIC 2>&1
     $exitCode = $LASTEXITCODE
@@ -89,6 +89,14 @@ try {
       Write-NativeDiagnostics
       throw "OGR input did not report exactly one written row with zero errors on attempt $attempt"
     }
+    if ($logText -notmatch "Geometry Calculator\.0 - Finished processing .*W=1.*E=0") {
+      Write-NativeDiagnostics
+      throw "Geometry Calculator did not process the OGR geometry with one written row and zero errors on attempt $attempt"
+    }
+    if ($logText -notmatch "Output\.0 - Finished processing .*R=1.*E=0") {
+      Write-NativeDiagnostics
+      throw "Output did not receive the geometry calculator row on attempt $attempt"
+    }
   }
 }
 finally {
@@ -96,4 +104,4 @@ finally {
   $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
 }
 
-Write-Host "Windows OGR end-to-end smoke passed twice."
+Write-Host "Windows OGR -> Geometry Calculator end-to-end smoke passed twice."

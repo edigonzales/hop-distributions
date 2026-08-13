@@ -50,6 +50,153 @@ jobs:
             --output-dir dist
           ls -lah dist
 
+      - name: Download Geometry Type runtime release
+        id: geometry_type
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p geometry-type-release
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import urllib.request
+
+          api_url = "https://api.github.com/repos/edigonzales/hop-geometry-type-plugin/releases/latest"
+          request = urllib.request.Request(api_url, headers={"User-Agent": "hop-distributions-ci/1.0"})
+          with urllib.request.urlopen(request) as response:
+              release = json.load(response)
+
+          assets = [
+              asset for asset in release.get("assets", [])
+              if asset.get("name", "").startswith("hop-geometry-type-plugin-")
+              and asset.get("name", "").endswith(".zip")
+          ]
+          if len(assets) != 1:
+              raise SystemExit(f"Expected exactly one Geometry Type ZIP asset, found {len(assets)}")
+
+          asset = assets[0]
+          destination = pathlib.Path("geometry-type-release") / asset["name"]
+          download = urllib.request.Request(
+              asset["browser_download_url"],
+              headers={"User-Agent": "hop-distributions-ci/1.0"},
+          )
+          with urllib.request.urlopen(download) as response, destination.open("wb") as handle:
+              while chunk := response.read(1024 * 1024):
+                  handle.write(chunk)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"tag={release['tag_name']}\n")
+              handle.write(f"name={release.get('name') or release['tag_name']}\n")
+              handle.write(f"zip={destination}\n")
+          PY
+
+      - name: Add Geometry Type runtime to distributions
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf geometry-type-overlay
+          mkdir -p geometry-type-overlay/hop
+          unzip -q "${{ steps.geometry_type.outputs.zip }}" -d geometry-type-overlay/hop
+
+          test -d geometry-type-overlay/hop/plugins/misc/hop-geometry-type
+          for archive in dist/*.zip; do
+            archive_abs="$(realpath "$archive")"
+            (
+              cd geometry-type-overlay
+              zip -qr "$archive_abs" hop/plugins/misc/hop-geometry-type
+            )
+          done
+
+      - name: Add Geometry Type release to metadata and filenames
+        env:
+          GEOMETRY_TYPE_TAG: ${{ steps.geometry_type.outputs.tag }}
+          GEOMETRY_TYPE_NAME: ${{ steps.geometry_type.outputs.name }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          metadata_path = Path("dist/release-metadata.json")
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          tag = os.environ["GEOMETRY_TYPE_TAG"]
+          release_name = os.environ["GEOMETRY_TYPE_NAME"]
+
+          match = re.search(r"-([0-9a-fA-F]{7,12})$", tag)
+          if match:
+              safe = match.group(1).lower()
+          else:
+              safe = re.sub(r"[^0-9A-Za-z._-]+", "-", tag).strip("-")
+              safe = safe[:24]
+
+          metadata["geometry_type_release_tag"] = tag
+          metadata["geometry_type_release_name"] = release_name
+          metadata["geometry_type_tag_safe"] = safe
+
+          for artifact in metadata["artifacts"]:
+              old_name = artifact["file"]
+              target = artifact["target"]
+              suffix = f"-{target}.zip"
+              if not old_name.endswith(suffix):
+                  raise SystemExit(f"Unexpected artifact filename: {old_name}")
+              new_name = f"{old_name[:-len(suffix)]}-{safe}{suffix}"
+              (metadata_path.parent / old_name).rename(metadata_path.parent / new_name)
+              artifact["file"] = new_name
+
+          prefix, separator, tail = metadata["release_tag"].rpartition("-")
+          if not separator:
+              raise SystemExit(f"Unexpected release tag: {metadata['release_tag']}")
+          metadata["release_tag"] = f"{prefix}-{safe}-{tail}"
+
+          current_name = metadata["release_name"]
+          name_match = re.match(r"^(.*) \(([^()]*)\)$", current_name)
+          if name_match:
+              metadata["release_name"] = (
+                  f"{name_match.group(1)} + hop-geometry-type-plugin {tag} ({name_match.group(2)})"
+              )
+          else:
+              metadata["release_name"] = f"{current_name} + hop-geometry-type-plugin {tag}"
+
+          metadata_path.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
+          PY
+          ls -lah dist
+
+      - name: Verify shared geometry runtime packaging
+        shell: bash
+        run: |
+          set -euo pipefail
+          for archive in dist/*.zip; do
+            echo "Checking $archive"
+            listing="$(mktemp)"
+            unzip -l "$archive" > "$listing"
+
+            grep -E 'hop/plugins/misc/hop-geometry-type/hop-geometry-type-[^/]+\.jar$' "$listing"
+            grep -E 'hop/plugins/misc/hop-geometry-type/lib/jts-core-[^/]+\.jar$' "$listing"
+            grep -E 'hop/plugins/transforms/hop-geometry-calculator/dependencies\.xml$' "$listing"
+            grep -E 'hop/plugins/transforms/hop-geoprocessing/dependencies\.xml$' "$listing"
+
+            unzip -p "$archive" hop/plugins/transforms/hop-geometry-calculator/dependencies.xml |
+              grep -F '../../misc/hop-geometry-type'
+            unzip -p "$archive" hop/plugins/transforms/hop-geoprocessing/dependencies.xml |
+              grep -F '../../misc/hop-geometry-type'
+
+            if grep -E 'hop/plugins/misc/hop-geometry-inspector/(lib/)?jts-core-[^/]+\.jar$' "$listing"; then
+              echo "Geometry Inspector must not package its own JTS runtime" >&2
+              exit 1
+            fi
+            if grep -E 'hop/plugins/transforms/hop-geometry-calculator/lib/jts-core-[^/]+\.jar$' "$listing"; then
+              echo "Geometry Calculator must use the shared Geometry Type JTS runtime" >&2
+              exit 1
+            fi
+            if grep -E 'hop/plugins/transforms/hop-geoprocessing/lib/jts-core-[^/]+\.jar$' "$listing"; then
+              echo "Geoprocessing must use the shared Geometry Type JTS runtime" >&2
+              exit 1
+            fi
+          done
+
       - name: Enable FFM native access in Hop launchers
         run: |
           set -euo pipefail
@@ -73,7 +220,7 @@ jobs:
           path: dist/*-windows-x86_64.zip
 
   windows-smoke:
-    name: Windows OGR end-to-end smoke
+    name: Windows geometry runtime end-to-end smoke
     runs-on: windows-2025
     needs: package
 
@@ -93,7 +240,7 @@ jobs:
           name: hop-distribution-windows-x86_64
           path: dist
 
-      - name: Run OGR pipeline twice
+      - name: Run OGR to Geometry Calculator pipeline twice
         shell: pwsh
         run: |
           $zip = Get-ChildItem -Path dist -Filter '*-windows-x86_64.zip' | Select-Object -First 1
@@ -131,6 +278,7 @@ jobs:
               f"Commit: `{metadata['commit_sha']}`" if metadata.get("commit_sha") else "Commit: local/manual run",
               f"Apache Hop: `{metadata['hop_version']}`",
               f"hop-gdal-plugin: `{metadata['plugin_release_tag']}`",
+              f"hop-geometry-type-plugin: `{metadata['geometry_type_release_tag']}`",
               f"hop-geometry-inspector-plugin: `{metadata['geometry_inspector_release_tag']}`",
               f"hop-ili2db-plugin: `{metadata['ili2db_release_tag']}`",
               f"hop-ilivalidator-plugin: `{metadata['ilivalidator_release_tag']}`",
