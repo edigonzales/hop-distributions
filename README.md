@@ -31,6 +31,7 @@ Builds Apache Hop 2.18.1 client distributions with the `hop-gdal-plugin` gdal su
 - Merges `hop-action-ilivalidator-<version>.zip` and `hop-transform-ilivalidator-<version>.zip` into all generated distributions
 - Validates the shared geometry/JTS runtime layout in the packaged ZIP, including that GeoTools does not carry another `jts-core` or Geometry Type runtime
 - Runs a Windows end-to-end pipeline `OGR Input -> Geometry Calculator -> Dummy` twice before a release can be published
+- Runs a Windows SQL/MM `CURVEPOLYGON` preview-string regression smoke against the packaged distribution
 - Publishes the resulting archives as a GitHub release
 
 ## Plugin artifact model
@@ -53,27 +54,35 @@ hop/
 
 The geospatial consumer plugins use that shared runtime instead of packaging their own JTS copy.
 
-## Output names
+## Release and output names
 
-Generated archives use this pattern before the Geometry Type overlay adds its tag id:
+Published names deliberately contain only the Apache Hop version and the seven-character `hop-distributions` commit SHA. Plugin release identifiers are kept out of filenames and release titles so names stay short and stable as more plugins are added.
 
-```text
-apache-hop-client-2.18.1-hop-plugins-<gdal_tag_id>-<geotools_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<target>.zip
-```
+For a distribution commit such as `595728817ee158f06f54d52675a5600c4ac680e1`, the distribution id is `5957288`.
 
-The final archives include the single shared Geometry Type release id immediately before the target:
+The GitHub release tag is:
 
 ```text
-apache-hop-client-2.18.1-hop-plugins-<gdal_tag_id>-<geotools_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<geometry_type_tag_id>-<target>.zip
+hop-2.18.1-geo-5957288
 ```
 
-The `*_tag_id` parts are compact, filename-safe identifiers derived from the full plugin release tags.
-
-The final release tag follows the same plugin ordering and adds the distribution commit SHA at the end:
+The GitHub release title is:
 
 ```text
-hop-2.18.1-<gdal_tag_id>-<geotools_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<geometry_type_tag_id>-<sha7>
+Apache Hop 2.18.1 + Geo Plugins (5957288)
 ```
+
+Generated archives use this pattern:
+
+```text
+apache-hop-client-2.18.1-geo-5957288-linux-x86_64.zip
+apache-hop-client-2.18.1-geo-5957288-linux-aarch64.zip
+apache-hop-client-2.18.1-geo-5957288-osx-x86_64.zip
+apache-hop-client-2.18.1-geo-5957288-osx-aarch64.zip
+apache-hop-client-2.18.1-geo-5957288-windows-x86_64.zip
+```
+
+The exact full release tag of every bundled plugin remains recorded in `release-metadata.json` and in the GitHub release body. The short distribution id therefore identifies the assembled distribution, while the metadata preserves full reproducibility and provenance.
 
 ## Local usage
 
@@ -91,6 +100,8 @@ python3 scripts/build_hop_distribution.py \
 ```
 
 Use `--target` one or more times to build only specific classifiers. Each plugin release option also accepts an explicit GitHub release tag instead of `latest`, which makes a distribution build reproducible against a fixed set of plugin releases.
+
+The raw builder output is finalized by `scripts/finalize_release_names.py` after the shared Geometry Type runtime has been added. This final step records the Geometry Type release and normalizes all published names to the short distribution-id scheme above.
 
 ## Requirements
 
