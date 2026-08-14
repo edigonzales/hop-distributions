@@ -1,6 +1,6 @@
 # hop-distributions
 
-Builds Apache Hop 2.18.1 client distributions with the `hop-gdal-plugin` gdal suite, the shared `hop-geometry-type-plugin` runtime, the `hop-geometry-inspector-plugin`, the `hop-geoprocessing-plugin`, the `hop-geometry-calculator-plugin`, the `hop-ili2db-plugin`, and the `hop-ilivalidator-plugin` merged in.
+Builds Apache Hop 2.18.1 client distributions with the `hop-gdal-plugin` gdal suite, the `hop-geotools-plugin` vector transforms, the shared `hop-geometry-type-plugin` runtime, the `hop-geometry-inspector-plugin`, the `hop-geoprocessing-plugin`, the `hop-geometry-calculator-plugin`, the `hop-ili2db-plugin`, and the `hop-ilivalidator-plugin` merged in.
 
 ## What it does
 
@@ -9,6 +9,7 @@ Builds Apache Hop 2.18.1 client distributions with the `hop-gdal-plugin` gdal su
 - Can also be started manually with `workflow_dispatch`
 - Downloads `apache-hop-client-2.18.1.zip` from Apache and verifies its SHA-512 checksum
 - Resolves the latest public `edigonzales/hop-gdal-plugin` release
+- Resolves the latest public `edigonzales/hop-geotools-plugin` release
 - Resolves the latest public `edigonzales/hop-geometry-type-plugin` release
 - Resolves the latest public `edigonzales/hop-geometry-inspector-plugin` release
 - Resolves the latest public `edigonzales/hop-geoprocessing-plugin` release
@@ -21,30 +22,57 @@ Builds Apache Hop 2.18.1 client distributions with the `hop-gdal-plugin` gdal su
   - `osx-x86_64`
   - `osx-aarch64`
   - `windows-x86_64`
-- Merges `hop-geometry-type-plugin-<version>.zip` as the shared geometry runtime into all generated distributions
+- Merges the platform-independent `hop-geotools-plugin-<version>.zip` into every generated distribution
+- Merges `hop-geometry-type-plugin-<version>.zip` exactly once as the shared Geometry/JTS runtime
 - Merges `hop-geometry-inspector-plugin-<version>.zip` into all generated distributions
 - Merges `hop-geoprocessing-plugin-<version>.zip` into all generated distributions
 - Merges `hop-geometry-calculator-plugin-<version>.zip` into all generated distributions
 - Merges `hop-action-ili2db-<version>.zip` and `hop-transform-ili2db-<version>.zip` into all generated distributions
 - Merges `hop-action-ilivalidator-<version>.zip` and `hop-transform-ilivalidator-<version>.zip` into all generated distributions
-- Validates the shared geometry/JTS runtime layout in the packaged ZIP
+- Validates the shared geometry/JTS runtime layout in the packaged ZIP, including that GeoTools does not carry another `jts-core` or Geometry Type runtime
 - Runs a Windows end-to-end pipeline `OGR Input -> Geometry Calculator -> Dummy` twice before a release can be published
 - Publishes the resulting archives as a GitHub release
 
-## Output names
+## Plugin artifact model
 
-Generated archives use this pattern:
+`hop-distributions` consumes **installable plugin ZIPs from GitHub Releases**. Maven repositories are used by plugin projects for compile/build dependencies, but are not used here to assemble the Hop runtime.
+
+The Geometry Type runtime is intentionally present only once:
 
 ```text
-apache-hop-client-2.18.1-hop-plugins-<gdal_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<geometry_type_tag_id>-<target>.zip
+hop/
+├── plugins/misc/hop-geometry-type/
+│   ├── hop-geometry-type-....jar
+│   └── lib/jts-core-....jar
+├── plugins/transforms/gdal-suite/
+├── plugins/transforms/geotools-vector/
+├── plugins/transforms/hop-geoprocessing/
+├── plugins/transforms/hop-geometry-calculator/
+└── plugins/misc/hop-geometry-inspector/
+```
+
+The geospatial consumer plugins use that shared runtime instead of packaging their own JTS copy.
+
+## Output names
+
+Generated archives use this pattern before the Geometry Type overlay adds its tag id:
+
+```text
+apache-hop-client-2.18.1-hop-plugins-<gdal_tag_id>-<geotools_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<target>.zip
+```
+
+The final archives include the single shared Geometry Type release id immediately before the target:
+
+```text
+apache-hop-client-2.18.1-hop-plugins-<gdal_tag_id>-<geotools_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<geometry_type_tag_id>-<target>.zip
 ```
 
 The `*_tag_id` parts are compact, filename-safe identifiers derived from the full plugin release tags.
 
-The release tag uses this pattern:
+The final release tag follows the same plugin ordering and adds the distribution commit SHA at the end:
 
 ```text
-hop-2.18.1-<gdal_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<geometry_type_tag_id>-<sha7>
+hop-2.18.1-<gdal_tag_id>-<geotools_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidator_tag_id>-<geoprocessing_tag_id>-<geometry_calculator_tag_id>-<geometry_type_tag_id>-<sha7>
 ```
 
 ## Local usage
@@ -53,6 +81,7 @@ hop-2.18.1-<gdal_tag_id>-<geometry_inspector_tag_id>-<ili2db_tag_id>-<ilivalidat
 python3 scripts/build_hop_distribution.py \
   --hop-version 2.18.1 \
   --plugin-release latest \
+  --geotools-release latest \
   --geometry-inspector-release latest \
   --geoprocessing-release latest \
   --geometry-calculator-release latest \
@@ -61,13 +90,14 @@ python3 scripts/build_hop_distribution.py \
   --output-dir dist
 ```
 
-Use `--target` one or more times to build only specific classifiers.
+Use `--target` one or more times to build only specific classifiers. Each plugin release option also accepts an explicit GitHub release tag instead of `latest`, which makes a distribution build reproducible against a fixed set of plugin releases.
 
 ## Requirements
 
-The workflow expects public, non-draft GitHub releases in:
+The workflow expects public, non-draft, non-prerelease GitHub releases in:
 
 - `edigonzales/hop-gdal-plugin`, containing all five `hop-gdal-suite-...zip` assets
+- `edigonzales/hop-geotools-plugin`, containing exactly one `hop-geotools-plugin-...zip` asset with `plugins/transforms/geotools-vector/`
 - `edigonzales/hop-geometry-type-plugin`, containing exactly one `hop-geometry-type-plugin-...zip` asset
 - `edigonzales/hop-geometry-inspector-plugin`, containing exactly one `hop-geometry-inspector-plugin-...zip` asset
 - `edigonzales/hop-geoprocessing-plugin`, containing exactly one `hop-geoprocessing-plugin-...zip` asset
@@ -75,4 +105,4 @@ The workflow expects public, non-draft GitHub releases in:
 - `edigonzales/hop-ili2db-plugin`, containing exactly one `hop-action-ili2db-...zip` asset and one `hop-transform-ili2db-...zip` asset
 - `edigonzales/hop-ilivalidator-plugin`, containing exactly one `hop-action-ilivalidator-...zip` asset and one `hop-transform-ilivalidator-...zip` asset
 
-The Windows runtime smoke currently uses Java 23 because the GDAL plugin artifacts are compiled for Java 23. Apache Hop 2.18 itself requires Java 21 or newer.
+The GeoTools plugin itself is Java 17 compatible, but the complete bundled Hop distribution currently has the stricter runtime requirement from Apache Hop/GDAL. The Windows runtime smoke uses Java 23 because the GDAL plugin artifacts are compiled for Java 23. Apache Hop 2.18 itself requires Java 21 or newer.
