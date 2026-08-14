@@ -8,6 +8,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $fixturePath = Join-Path $repoRoot "smoke/windows/ogr-smoke.geojson"
 $templatePath = Join-Path $repoRoot "smoke/windows/ogr-smoke.hpl"
+$curveGeneratorPath = Join-Path $repoRoot "smoke/windows/create_curve_gpkg.py"
+$curveTemplatePath = Join-Path $repoRoot "smoke/windows/curve-preview-smoke.hpl"
 
 if (-not (Test-Path -LiteralPath $DistributionZip)) {
   throw "Distribution ZIP not found: $DistributionZip"
@@ -18,11 +20,19 @@ if (-not (Test-Path -LiteralPath $fixturePath)) {
 if (-not (Test-Path -LiteralPath $templatePath)) {
   throw "OGR smoke pipeline template not found: $templatePath"
 }
+if (-not (Test-Path -LiteralPath $curveGeneratorPath)) {
+  throw "Curve GeoPackage generator not found: $curveGeneratorPath"
+}
+if (-not (Test-Path -LiteralPath $curveTemplatePath)) {
+  throw "Curve preview pipeline template not found: $curveTemplatePath"
+}
 
 $workDir = Join-Path $env:RUNNER_TEMP "hop-windows-ogr-smoke"
 $extractDir = Join-Path $workDir "distribution"
 $nativeTempDir = Join-Path $workDir "native-tmp"
 $pipelinePath = Join-Path $workDir "ogr-smoke.hpl"
+$curveGpkgPath = Join-Path $workDir "curve-preview.gpkg"
+$curvePipelinePath = Join-Path $workDir "curve-preview-smoke.hpl"
 
 Remove-Item -LiteralPath $workDir -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Path $extractDir -Force | Out-Null
@@ -45,6 +55,21 @@ if (-not $template.Contains("__OGR_SMOKE_FILE__")) {
 }
 $template.Replace("__OGR_SMOKE_FILE__", $escapedFixturePath) |
   Set-Content -LiteralPath $pipelinePath -Encoding utf8
+
+Write-Host "Generating SQL/MM CURVEPOLYGON GeoPackage fixture"
+& python $curveGeneratorPath $curveGpkgPath
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $curveGpkgPath)) {
+  throw "Failed to create CurvePolygon GeoPackage fixture"
+}
+
+$curveGpkgUriPath = (Resolve-Path -LiteralPath $curveGpkgPath).Path.Replace("\", "/")
+$escapedCurveGpkgPath = [System.Security.SecurityElement]::Escape($curveGpkgUriPath)
+$curveTemplate = Get-Content -LiteralPath $curveTemplatePath -Raw
+if (-not $curveTemplate.Contains("__CURVE_GPKG_FILE__")) {
+  throw "Curve pipeline template does not contain __CURVE_GPKG_FILE__ placeholder"
+}
+$curveTemplate.Replace("__CURVE_GPKG_FILE__", $escapedCurveGpkgPath) |
+  Set-Content -LiteralPath $curvePipelinePath -Encoding utf8
 
 $nativeTempUriPath = $nativeTempDir.Replace("\", "/")
 $previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
@@ -98,10 +123,38 @@ try {
       throw "Output did not receive the geometry calculator row on attempt $attempt"
     }
   }
+
+  $curveLogPath = Join-Path $workDir "curve-preview.log"
+  Write-Host "Running CurvePolygon OGR -> ValueMetaGeometry string rendering smoke"
+  $curveOutput = & $hopRun.FullName -r local -f $curvePipelinePath -l BASIC 2>&1
+  $curveExitCode = $LASTEXITCODE
+  $curveOutput | Tee-Object -FilePath $curveLogPath | Write-Host
+
+  if ($curveExitCode -ne 0) {
+    Write-NativeDiagnostics
+    throw "CurvePolygon preview pipeline failed with exit code $curveExitCode"
+  }
+
+  $curveLogText = Get-Content -LiteralPath $curveLogPath -Raw
+  if ($curveLogText -notmatch "OGR input\.0 - Finished processing .*W=1.*E=0") {
+    throw "CurvePolygon OGR input did not report one written row with zero errors"
+  }
+  if ($curveLogText -notmatch "CURVE_PREVIEW_STRING") {
+    throw "Write To Log did not execute the CurvePolygon string-rendering path"
+  }
+  if ($curveLogText -notmatch "geometry\s*=\s*(?:SRID=2056;)?CURVEPOLYGON\s*\(") {
+    throw "CurvePolygon was not rendered as CURVEPOLYGON in the installed distribution"
+  }
+  if ($curveLogText -notmatch "CIRCULARSTRING\s*\(") {
+    throw "CurvePolygon string output did not preserve its CIRCULARSTRING ring"
+  }
+  if ($curveLogText -match "geometry\s*=\s*(?:SRID=2056;)?POLYGON\s*\(") {
+    throw "CurvePolygon regressed to a linear POLYGON preview string"
+  }
 }
 finally {
   Pop-Location
   $env:JAVA_TOOL_OPTIONS = $previousJavaToolOptions
 }
 
-Write-Host "Windows OGR -> Geometry Calculator end-to-end smoke passed twice."
+Write-Host "Windows geometry runtime end-to-end smokes passed: OGR -> Geometry Calculator twice and CurvePolygon preview rendering."
