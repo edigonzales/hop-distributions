@@ -41,6 +41,7 @@ jobs:
           python3 scripts/build_hop_distribution.py \
             --hop-version 2.18.1 \
             --plugin-release latest \
+            --geotools-release latest \
             --geometry-inspector-release latest \
             --geoprocessing-release latest \
             --geometry-calculator-release latest \
@@ -175,6 +176,8 @@ jobs:
 
             grep -E 'hop/plugins/misc/hop-geometry-type/hop-geometry-type-[^/]+\.jar$' "$listing"
             grep -E 'hop/plugins/misc/hop-geometry-type/lib/jts-core-[^/]+\.jar$' "$listing"
+            grep -E 'hop/plugins/transforms/geotools-vector/hop-geotools-vector-[^/]+\.jar$' "$listing"
+            grep -E 'hop/plugins/transforms/geotools-vector/lib/gt-main-[^/]+\.jar$' "$listing"
             grep -E 'hop/plugins/transforms/hop-geometry-calculator/dependencies\.xml$' "$listing"
             grep -E 'hop/plugins/transforms/hop-geoprocessing/dependencies\.xml$' "$listing"
 
@@ -193,6 +196,14 @@ jobs:
             fi
             if grep -E 'hop/plugins/transforms/hop-geoprocessing/lib/jts-core-[^/]+\.jar$' "$listing"; then
               echo "Geoprocessing must use the shared Geometry Type JTS runtime" >&2
+              exit 1
+            fi
+            if grep -E 'hop/plugins/transforms/geotools-vector/(lib/)?jts-core-[^/]+\.jar$' "$listing"; then
+              echo "GeoTools Vector must use the shared Geometry Type JTS runtime" >&2
+              exit 1
+            fi
+            if grep -E 'hop/plugins/transforms/geotools-vector/(lib/)?hop-geometry-type-[^/]+\.jar$' "$listing"; then
+              echo "GeoTools Vector must not package another Geometry Type runtime" >&2
               exit 1
             fi
           done
@@ -278,6 +289,7 @@ jobs:
               f"Commit: `{metadata['commit_sha']}`" if metadata.get("commit_sha") else "Commit: local/manual run",
               f"Apache Hop: `{metadata['hop_version']}`",
               f"hop-gdal-plugin: `{metadata['plugin_release_tag']}`",
+              f"hop-geotools-plugin: `{metadata['geotools_release_tag']}`",
               f"hop-geometry-type-plugin: `{metadata['geometry_type_release_tag']}`",
               f"hop-geometry-inspector-plugin: `{metadata['geometry_inspector_release_tag']}`",
               f"hop-ili2db-plugin: `{metadata['ili2db_release_tag']}`",
