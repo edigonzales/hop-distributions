@@ -164,6 +164,9 @@ jobs:
             fi
           done
 
+      - name: Verify one GeoTools runtime version
+        run: python3 scripts/check_geotools_versions.py --expected-version 35.0 dist/*.zip
+
       - name: Enable FFM native access in Hop launchers
         run: |
           set -euo pipefail
