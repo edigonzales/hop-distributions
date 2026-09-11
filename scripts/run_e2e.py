@@ -6,6 +6,7 @@ import copy
 import csv
 import json
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -18,6 +19,16 @@ FIXTURES = ROOT / 'e2e'
 sys.path.insert(0, str(FIXTURES))
 import ili2db_cases
 import validator_cases
+
+
+def runtime_libraries(hop, system, machine):
+    arch = 'arm64' if machine.lower() in {'arm64', 'aarch64'} else 'x86_64'
+    platform_folder = 'win64' if system == 'win32' else ('osx/' if system == 'darwin' else 'linux/') + arch
+    folders = [hop/'lib/core', hop/'lib/spark-client', hop/'lib/swt'/platform_folder]
+    swt = folders[-1]/'swt.jar'
+    if not swt.is_file():
+        raise RuntimeError(f'Missing platform SWT: {swt}')
+    return sorted(path for folder in folders for path in folder.glob('*.jar'))
 
 
 def main():
@@ -72,7 +83,7 @@ def main():
     def rows(path):
         with path.open(newline='',encoding='utf-8') as f:return list(csv.reader(f,delimiter=';'))
     classes=reports/'classes';classes.mkdir()
-    core_cp=os.pathsep.join(str(p) for p in (hop/'lib').rglob('*.jar'))
+    core_cp=os.pathsep.join(str(p) for p in runtime_libraries(hop, sys.platform, platform.machine()))
     full_cp=core_cp+os.pathsep+os.pathsep.join(str(p) for p in (hop/'plugins').rglob('*.jar'))
     run([str(javac),'-proc:none','-cp',core_cp,'-d',str(classes),str(FIXTURES/'RuntimeIdentityProbe.java'),str(FIXTURES/'DistributionRuntimeProbe.java')])
     for order in ['raster-first','geometry-first']:
