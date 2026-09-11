@@ -22,6 +22,24 @@ class PluginArchive:
     path: Path
     required_prefix: str
 
+
+VERSION_PATTERN = re.compile(r"[A-Za-z0-9]+(?:[.-][A-Za-z0-9]+)*")
+
+
+def publication_version(base_version):
+    if not isinstance(base_version, str) or not VERSION_PATTERN.fullmatch(base_version):
+        raise BuildError(f"Invalid distribution version: {base_version}")
+
+    suffix = os.environ.get("DISTRIBUTION_BUILD_SUFFIX", "").strip()
+    prerelease = base_version.endswith("-SNAPSHOT")
+    if suffix:
+        if not prerelease:
+            raise BuildError("DISTRIBUTION_BUILD_SUFFIX is only valid for SNAPSHOT distributions")
+        if not VERSION_PATTERN.fullmatch(suffix):
+            raise BuildError(f"Invalid distribution build suffix: {suffix}")
+        return f"{base_version}.{suffix}", True
+    return base_version, prerelease
+
 def digest(path, algorithm="sha256"):
     value = hashlib.new(algorithm)
     with Path(path).open("rb") as stream:
@@ -70,7 +88,8 @@ def validate_runtime(archive, prefix="hop/"):
 
 def build(config, output):
     output.mkdir(parents=True, exist_ok=True)
-    version = config["distribution_version"]
+    base_version = config["distribution_version"]
+    version, prerelease = publication_version(base_version)
     hop = config["hop_version"]
     with tempfile.TemporaryDirectory(prefix="hop-inputs-") as directory:
         work = Path(directory)
@@ -107,7 +126,8 @@ def build(config, output):
         archive = output / name
         build_distribution_archive(hop_zip_path=hop_zip, plugin_archives=plugins, output_path=archive)
         validate_runtime(archive)
-        metadata = {"schema_version": 1, "distribution_version": version, "hop_version": hop,
+        metadata = {"schema_version": 2, "distribution_version": base_version,
+                    "publication_version": version, "prerelease": prerelease, "hop_version": hop,
                     "commit_sha": os.environ.get("GITHUB_SHA", ""), "release_tag": "v" + version,
                     "release_name": f"Hop Geo Distribution {version} (Apache Hop {hop})",
                     "hop": {"url": hop_url, "sha512": actual}, "plugins": resolved,

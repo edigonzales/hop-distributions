@@ -1,5 +1,5 @@
 {
-  "distribution_version": "0.2.0",
+  "distribution_version": "0.2.1-SNAPSHOT",
   "hop_version": "2.19.0",
   "hop_sha512": "eb227ffe3386480f5ecb59e1d9fdbb16ace15b9ebd9e02da16cdca2c3cadc869f92275b0f607952fb2c5122986839a5b09b2c5762401dad128d8de6b0394643c",
   "snapshot_repository": "https://jars.interlis.guru/snapshots",

@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -97,11 +98,40 @@ class DistributionTests(unittest.TestCase):
             with patch.object(builder,'download',download):
                 metadata=builder.build(config,root/'dist')
             artifact=root/'dist'/metadata['artifacts'][0]['file']
+            self.assertEqual(metadata['schema_version'], 2)
+            self.assertEqual(metadata['distribution_version'], '0.2.0')
+            self.assertEqual(metadata['publication_version'], '0.2.0')
+            self.assertFalse(metadata['prerelease'])
             self.assertEqual(metadata['release_tag'],'v0.2.0')
             self.assertEqual(metadata['artifacts'][0]['sha256'],builder.digest(artifact))
             self.assertEqual(len(metadata['plugins']),2)
             self.assertIn('20260911',metadata['plugins'][0]['resolved_version'])
             self.assertEqual(len(list((root/'dist').glob('*.zip'))),1)
+
+            snapshot_config = dict(config, distribution_version='0.2.1-SNAPSHOT')
+            with patch.dict(os.environ, {'DISTRIBUTION_BUILD_SUFFIX': 'build.123.1'}):
+                with patch.object(builder,'download',download):
+                    snapshot = builder.build(snapshot_config,root/'snapshot')
+            snapshot_artifact = root/'snapshot'/snapshot['artifacts'][0]['file']
+            self.assertEqual(snapshot['distribution_version'], '0.2.1-SNAPSHOT')
+            self.assertEqual(snapshot['publication_version'], '0.2.1-SNAPSHOT.build.123.1')
+            self.assertTrue(snapshot['prerelease'])
+            self.assertEqual(snapshot['release_tag'], 'v0.2.1-SNAPSHOT.build.123.1')
+            self.assertEqual(snapshot_artifact.name, 'apache-hop-client-2.19.0-geo-0.2.1-SNAPSHOT.build.123.1.zip')
+
+            with patch.dict(os.environ, {'DISTRIBUTION_BUILD_SUFFIX': 'build.124.1'}):
+                with patch.object(builder,'download',download):
+                    second_snapshot = builder.build(snapshot_config,root/'snapshot-two')
+            self.assertNotEqual(snapshot['publication_version'], second_snapshot['publication_version'])
+
+            with patch.dict(os.environ, {'DISTRIBUTION_BUILD_SUFFIX': 'build/unsafe'}):
+                with self.assertRaisesRegex(builder.BuildError, 'build suffix'):
+                    builder.build(snapshot_config,root/'bad-suffix')
+
+            with patch.dict(os.environ, {'DISTRIBUTION_BUILD_SUFFIX': 'build.999.1'}):
+                with self.assertRaisesRegex(builder.BuildError, 'only valid for SNAPSHOT'):
+                    builder.build(config,root/'stable-with-suffix')
+
             config['hop_sha512']='0'*128
             with patch.object(builder,'download',download), self.assertRaisesRegex(builder.BuildError,'SHA-512'):
                 builder.build(config,root/'bad')

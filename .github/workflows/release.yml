@@ -24,6 +24,9 @@ jobs:
         env:
           GITHUB_SHA: ${{ github.sha }}
         run: |
+          if grep -Eq '"distribution_version"[[:space:]]*:[[:space:]]*"[^"[:space:]]+-SNAPSHOT"' distribution.json; then
+            export DISTRIBUTION_BUILD_SUFFIX="build.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
+          fi
           python scripts/build_hop_distribution.py --output-dir dist
           python scripts/check_geotools_versions.py --expected-version 35.1 dist/*.zip
       - uses: actions/upload-artifact@v4
@@ -77,7 +80,7 @@ jobs:
         with:
           name: hop-distribution
           path: dist
-      - name: Publish immutable release
+      - name: Publish immutable release or pre-release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}

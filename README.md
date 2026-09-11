@@ -1,6 +1,6 @@
 # Hop Geo Distribution
 
-One platform-independent Apache Hop **2.19.0** client distribution, version **0.2.0**,
+One platform-independent Apache Hop **2.19.0** client distribution, base version **0.2.1-SNAPSHOT**,
 with nine plugin projects installed:
 
 - Geometry Type (shared Geometry/JTS runtime)
@@ -25,12 +25,16 @@ trusted Hop SHA-512, Maven snapshot base versions and installation roots.
 Each build resolves the latest unclassified ZIP in Maven snapshot metadata:
 Geometry Type `0.2.0-SNAPSHOT`, other plugins `0.1.0-SNAPSHOT`. Timestamped
 snapshot coordinates are recorded in the manifest, never pinned in the workflow.
-A new snapshot base version requires an explicit configuration update.
+A new snapshot base version requires an explicit configuration update. CI adds
+`build.<github-run-id>.<run-attempt>` to Snapshot distributions so each published
+pre-release is unique and immutable. Local builds without that variable keep the
+base version in the filename.
 
 The builder verifies Hop's SHA-512, rejects overlapping plugin files, and preserves
 launcher permissions. It produces:
 
-- `apache-hop-client-2.19.0-geo-0.2.0.zip`
+- `apache-hop-client-2.19.0-geo-0.2.1-SNAPSHOT.zip` (local build)
+- `apache-hop-client-2.19.0-geo-0.2.1-SNAPSHOT.build.123456789.1.zip` (CI build)
 - its `.sha256` checksum
 - `release-metadata.json`, including resolved input URLs, versions and hashes
 
@@ -52,7 +56,7 @@ With Java 21 or 25 selected through `JAVA_HOME`:
 
 ```sh
 python3 scripts/run_e2e.py \
-  --archive dist/apache-hop-client-2.19.0-geo-0.2.0.zip \
+  --archive dist/apache-hop-client-2.19.0-geo-0.2.1-SNAPSHOT.zip \
   --work-dir .ci/local-e2e
 ```
 
@@ -68,18 +72,18 @@ Fixture preparation uses a separate JVM with the required data libraries; that
 classpath is never used to run pipelines or runtime identity tests. Adapted test
 fixtures are attributed in `e2e/provenance.json`.
 
-### Known validator behavior
+### Validator behavior
 
-In the current ilivalidator snapshot, static validation without incoming rows emits
-an invalid result row but bypasses the `failPipelineOnInvalid` check. Use incoming
-file rows when a validation error must fail the pipeline. The negative E2E test
-exercises that row-driven mode. This distribution does not modify plugin behavior.
+Static validation without incoming rows applies `failPipelineOnInvalid` just like
+row-driven validation. Technical validation errors always fail the transform; an
+invalid result either stops the pipeline or is emitted according to that option.
 
 ## CI and releases
 
 PRs, pushes to `main` and manual runs build one archive on Ubuntu. Only E2E jobs
 use the Java 21/25 × Linux/macOS/Windows matrix, all consuming that same archive.
 Release publication depends on the complete successful matrix and is disabled
-for PRs. GitHub release `v0.2.0` includes the ZIP, checksum and provenance manifest.
-Existing releases are left unchanged. Increment `distribution_version` for the
-next publication; rebuilding an existing version does not replace its release.
+for PRs. Main builds with the `0.2.1-SNAPSHOT` base create immutable GitHub
+pre-releases with their build suffix; existing tags and assets are left unchanged.
+For the final stable release, change `distribution_version` to `0.2.1` and publish
+without a suffix. Stable releases are immutable as well.
