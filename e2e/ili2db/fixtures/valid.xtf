@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TRANSFER xmlns="http://www.interlis.ch/INTERLIS2.3"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          VERSION="2.3"
+          SENDER="hop-ili2db-plugin-e2e">
+  <HEADERSECTION SENDER="hop-ili2db-plugin-e2e" VERSION="2.3"/>
+  <DATASECTION>
+    <TransferInputTest.Data BID="Data">
+      <TransferInputTest.Data.Item TID="1">
+        <Name>Example</Name>
+      </TransferInputTest.Data.Item>
+    </TransferInputTest.Data>
+  </DATASECTION>
+</TRANSFER>

@@ -1,0 +1,25 @@
+INTERLIS 2.4;
+
+/** Test model covering INTERLIS geometry kinds, including circular arcs. */
+MODEL HopIli_Geometry_V1 (en)
+AT "https://hop.interlis.example/models" VERSION "2026-08-25" =
+  DOMAIN
+    Coord = COORD 2460000.000 .. 2870000.000, 1045000.000 .. 1310000.000;
+    Line = POLYLINE WITH (STRAIGHTS, ARCS) VERTEX Coord;
+    Surface = SURFACE WITH (STRAIGHTS, ARCS) VERTEX Coord WITHOUT OVERLAPS > 0.001;
+    Area_ = AREA WITH (STRAIGHTS, ARCS) VERTEX Coord WITHOUT OVERLAPS > 0.001;
+    MultiLine = MULTIPOLYLINE WITH (STRAIGHTS, ARCS) VERTEX Coord;
+    MultiSurface = MULTISURFACE WITH (STRAIGHTS, ARCS) VERTEX Coord WITHOUT OVERLAPS > 0.001;
+  TOPIC Data =
+    CLASS TestObject =
+      Name : TEXT*80;
+      Center : Coord;
+      Points : MULTICOORD 2460000.000 .. 2870000.000, 1045000.000 .. 1310000.000;
+      Axis : Line;
+      Axes : MultiLine;
+      Boundary : Surface;
+      Area : Area_;
+      Surfaces : MultiSurface;
+    END TestObject;
+  END Data;
+END HopIli_Geometry_V1.

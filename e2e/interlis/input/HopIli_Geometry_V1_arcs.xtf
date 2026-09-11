@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TRANSFER xmlns="http://www.interlis.ch/INTERLIS2.3">
+  <HEADERSECTION SENDER="hop-interlis-plugin-tests" VERSION="2.3">
+    <MODELS>
+      <MODEL NAME="HopIli_Geometry_V1" VERSION="2026-08-25" URI="https://hop.interlis.example/models"/>
+    </MODELS>
+  </HEADERSECTION>
+  <DATASECTION>
+    <HopIli_Geometry_V1.Data BID="b1">
+      <HopIli_Geometry_V1.Data.TestObject TID="c1">
+        <Name>arc-one</Name>
+        <Axis>
+          <POLYLINE>
+            <COORD>
+              <C1>2600000.000</C1>
+              <C2>1200000.000</C2>
+            </COORD>
+            <ARC>
+              <C1>2600100.000</C1>
+              <C2>1200000.000</C2>
+              <A1>2600050.000</A1>
+              <A2>1200050.000</A2>
+            </ARC>
+          </POLYLINE>
+        </Axis>
+      </HopIli_Geometry_V1.Data.TestObject>
+      <HopIli_Geometry_V1.Data.TestObject TID="c2">
+        <Name>arc-two</Name>
+        <Axis>
+          <POLYLINE>
+            <COORD>
+              <C1>2600100.000</C1>
+              <C2>1200000.000</C2>
+            </COORD>
+            <ARC>
+              <C1>2600200.000</C1>
+              <C2>1200000.000</C2>
+              <A1>2600150.000</A1>
+              <A2>1200050.000</A2>
+            </ARC>
+          </POLYLINE>
+        </Axis>
+      </HopIli_Geometry_V1.Data.TestObject>
+    </HopIli_Geometry_V1.Data>
+  </DATASECTION>
+</TRANSFER>

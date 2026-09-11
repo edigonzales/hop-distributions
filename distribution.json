@@ -1,0 +1,63 @@
+{
+  "distribution_version": "0.2.0",
+  "hop_version": "2.19.0",
+  "hop_sha512": "eb227ffe3386480f5ecb59e1d9fdbb16ace15b9ebd9e02da16cdca2c3cadc869f92275b0f607952fb2c5122986839a5b09b2c5762401dad128d8de6b0394643c",
+  "snapshot_repository": "https://jars.interlis.guru/snapshots",
+  "plugins": [
+    {
+      "artifact": "hop-geometry-type-plugin",
+      "root": "plugins/misc/hop-geometry-type",
+      "version": "0.2.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-geometry-inspector-plugin",
+      "root": "plugins/misc/hop-geometry-inspector",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-geometry-calculator-plugin",
+      "root": "plugins/transforms/hop-geometry-calculator",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-geoprocessing-plugin",
+      "root": "plugins/transforms/hop-geoprocessing",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-vector-raster-plugin",
+      "root": "plugins/transforms/vector-raster",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-interlis-plugin",
+      "root": "plugins/transforms/interlis",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-action-ili2db",
+      "root": "plugins/actions/ili2db",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-transform-ili2db",
+      "root": "plugins/transforms/ili2db",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-action-ilivalidator",
+      "root": "plugins/actions/ilivalidator",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-transform-ilivalidator",
+      "root": "plugins/transforms/ilivalidator",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
+      "artifact": "hop-transform-graalpy",
+      "root": "plugins/transforms/graalpy",
+      "version": "0.1.0-SNAPSHOT"
+    }
+  ]
+}

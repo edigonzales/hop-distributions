@@ -1,633 +1,110 @@
-from __future__ import annotations
-
-import importlib.util
-import sys
+import json
+from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 import zipfile
-from pathlib import Path
+
+import build_hop_distribution as builder
 
 
-def load_module():
-    module_path = Path(__file__).with_name("build_hop_distribution.py")
-    spec = importlib.util.spec_from_file_location("build_hop_distribution", module_path)
-    module = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+class DistributionTests(unittest.TestCase):
+    def test_snapshot_selects_latest_unclassified_zip(self):
+        metadata = b'''<metadata><versioning><snapshotVersions>
+          <snapshotVersion><extension>zip</extension><value>0.1.0-20260910.100000-1</value><updated>20260910100000</updated></snapshotVersion>
+          <snapshotVersion><extension>zip</extension><value>0.1.0-20260911.100000-2</value><updated>20260911100000</updated></snapshotVersion>
+          <snapshotVersion><extension>zip</extension><classifier>sources</classifier><value>wrong</value><updated>20260912100000</updated></snapshotVersion>
+        </snapshotVersions></versioning></metadata>'''
+        self.assertEqual(builder.resolve_snapshot(metadata, 'plugin'), '0.1.0-20260911.100000-2')
 
-
-builder = load_module()
-
-
-class BuildHopDistributionTests(unittest.TestCase):
-    def test_select_gdal_suite_assets_returns_all_targets(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": f"hop-gdal-suite-1.2.3-{target}.zip",
-                    "browser_download_url": f"https://example.test/{target}.zip",
-                }
-                for target in builder.SUPPORTED_TARGETS
-            ]
-            + [
-                {
-                    "name": "notes.txt",
-                    "browser_download_url": "https://example.test/notes.txt",
-                }
-            ],
-        }
-
-        assets = builder.select_gdal_suite_assets(release_payload)
-
-        self.assertEqual(set(builder.SUPPORTED_TARGETS), set(assets.keys()))
-        self.assertEqual("linux-x86_64", assets["linux-x86_64"].target)
-
-    def test_select_gdal_suite_assets_requires_all_targets(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": f"hop-gdal-suite-1.2.3-{target}.zip",
-                    "browser_download_url": f"https://example.test/{target}.zip",
-                }
-                for target in builder.SUPPORTED_TARGETS
-                if target != "windows-x86_64"
-            ],
-        }
-
+    def test_missing_zip_fails(self):
         with self.assertRaises(builder.BuildError):
-            builder.select_gdal_suite_assets(release_payload)
+            builder.resolve_snapshot(b'<metadata/>', 'plugin')
 
-    def test_compact_tag_component_keeps_short_tag(self) -> None:
-        self.assertEqual("v1.2.3", builder.compact_tag_component("v1.2.3"))
+    def test_unsafe_archive_paths(self):
+        for name in ('../evil', '/etc/file', 'C:/file', '..\\file'):
+            with self.subTest(name=name), self.assertRaises(builder.BuildError):
+                builder.normalize_zip_entry_name(name)
 
-    def test_compact_tag_component_uses_trailing_hash_for_long_auto_release_tag(self) -> None:
-        self.assertEqual(
-            "97ff5c8",
-            builder.compact_tag_component("auto-v0.1.0-SNAPSHOT-20260317-1648-97ff5c8"),
-        )
+    def make_archive(self, path, entries):
+        with zipfile.ZipFile(path, 'w') as archive:
+            for name, value in entries.items():
+                archive.writestr(name, value)
 
-    def test_compact_tag_component_truncates_non_hash_long_tag(self) -> None:
-        compact = builder.compact_tag_component("release-name-without-commit-hash-but-still-very-long")
-        self.assertLessEqual(len(compact), builder.MAX_TAG_ID_LENGTH)
-        self.assertRegex(compact, r"^[0-9A-Za-z._-]+$")
-
-    def test_build_distribution_archive_merges_plugin_and_preserves_permissions(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="hop-dist-test-") as temp_dir_name:
-            temp_dir = Path(temp_dir_name)
-            hop_zip = temp_dir / "hop.zip"
-            suite_zip = temp_dir / "suite.zip"
-            geometry_zip = temp_dir / "geometry.zip"
-            geoprocessing_zip = temp_dir / "geoprocessing.zip"
-            geometry_calculator_zip = temp_dir / "geometry-calculator.zip"
-            ili2db_action_zip = temp_dir / "ili2db-action.zip"
-            ili2db_transform_zip = temp_dir / "ili2db-transform.zip"
-            ilivalidator_action_zip = temp_dir / "ilivalidator-action.zip"
-            ilivalidator_transform_zip = temp_dir / "ilivalidator-transform.zip"
-            output_zip = temp_dir / "output.zip"
-
-            self.create_hop_zip(hop_zip)
-            self.create_suite_zip(suite_zip)
-            self.create_geometry_zip(geometry_zip)
-            self.create_geoprocessing_zip(geoprocessing_zip)
-            self.create_geometry_calculator_zip(geometry_calculator_zip)
-            self.create_ili2db_action_zip(ili2db_action_zip)
-            self.create_ili2db_transform_zip(ili2db_transform_zip)
-            self.create_ilivalidator_action_zip(ilivalidator_action_zip)
-            self.create_ilivalidator_transform_zip(ilivalidator_transform_zip)
-
-            builder.build_distribution_archive(
-                hop_zip_path=hop_zip,
-                plugin_archives=[
-                    builder.PluginArchive(
-                        path=suite_zip,
-                        required_prefix=builder.GDAL_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=geometry_zip,
-                        required_prefix=builder.GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=geoprocessing_zip,
-                        required_prefix=builder.GEOPROCESSING_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=geometry_calculator_zip,
-                        required_prefix=builder.GEOMETRY_CALCULATOR_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=ili2db_action_zip,
-                        required_prefix=builder.ILI2DB_ACTION_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=ili2db_transform_zip,
-                        required_prefix=builder.ILI2DB_TRANSFORM_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=ilivalidator_action_zip,
-                        required_prefix=builder.ILIVALIDATOR_ACTION_PLUGIN_PREFIX,
-                    ),
-                    builder.PluginArchive(
-                        path=ilivalidator_transform_zip,
-                        required_prefix=builder.ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX,
-                    ),
-                ],
-                output_path=output_zip,
-            )
-
-            with zipfile.ZipFile(output_zip) as archive:
-                names = archive.namelist()
-                self.assertIn("hop/lib/core.jar", names)
-                self.assertIn(
-                    "hop/plugins/transforms/gdal-suite/hop-transform-ogr-reader.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/gdal-suite/hop-transform-gdal-raster-info.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/misc/hop-geometry-inspector/geometry-inspector.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/hop-geoprocessing/geoprocessing.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/hop-geometry-calculator/hop-transform-geometry-calculator.jar",
-                    names,
-                )
-                self.assertIn("hop/plugins/actions/ili2db/hop-action-ili2db.jar", names)
-                self.assertIn("hop/plugins/transforms/ili2db/hop-transform-ili2db.jar", names)
-                self.assertIn(
-                    "hop/plugins/actions/ilivalidator/hop-action-ilivalidator.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/ilivalidator/hop-transform-ilivalidator.jar",
-                    names,
-                )
-                mode = (archive.getinfo("hop/hop-gui.sh").external_attr >> 16) & 0o777
-                self.assertEqual(0o755, mode)
-
-    def test_build_distribution_archive_merges_gdal_suite_vector_and_raster_transforms(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="hop-dist-test-") as temp_dir_name:
-            temp_dir = Path(temp_dir_name)
-            hop_zip = temp_dir / "hop.zip"
-            suite_zip = temp_dir / "suite.zip"
-            output_zip = temp_dir / "output.zip"
-
-            self.create_hop_zip(hop_zip)
-            self.create_suite_zip(suite_zip)
-
-            builder.build_distribution_archive(
-                hop_zip_path=hop_zip,
-                plugin_archives=[
-                    builder.PluginArchive(
-                        path=suite_zip,
-                        required_prefix=builder.GDAL_PLUGIN_PREFIX,
-                    )
-                ],
-                output_path=output_zip,
-            )
-
-            with zipfile.ZipFile(output_zip) as archive:
-                names = archive.namelist()
-                self.assertIn(
-                    "hop/plugins/transforms/gdal-suite/hop-transform-ogr-reader.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/gdal-suite/hop-transform-ogr-exporter.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/gdal-suite/hop-transform-gdal-raster-info.jar",
-                    names,
-                )
-                self.assertIn(
-                    "hop/plugins/transforms/gdal-suite/hop-transform-gdal-raster-clip.jar",
-                    names,
-                )
-
-    def test_build_distribution_archive_rejects_missing_plugin_directory(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="hop-dist-test-") as temp_dir_name:
-            temp_dir = Path(temp_dir_name)
-            hop_zip = temp_dir / "hop.zip"
-            geometry_zip = temp_dir / "geometry.zip"
-            output_zip = temp_dir / "output.zip"
-
-            self.create_hop_zip(hop_zip)
-            with zipfile.ZipFile(geometry_zip, "w") as archive:
-                archive.writestr("plugins/transforms/other-plugin/plugin.jar", b"plugin")
-
-            with self.assertRaises(builder.BuildError):
-                builder.build_distribution_archive(
-                    hop_zip_path=hop_zip,
-                    plugin_archives=[
-                        builder.PluginArchive(
-                            path=geometry_zip,
-                            required_prefix=builder.GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
-                        )
-                    ],
-                    output_path=output_zip,
-                )
-
-    def test_select_single_zip_asset_returns_geometry_archive(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-geometry-inspector-plugin-1.2.3.zip",
-                    "browser_download_url": "https://example.test/geometry.zip",
-                }
-            ],
+    def runtime_entries(self):
+        return {
+            'hop/plugins/misc/hop-geometry-type/hop-geometry-type-0.2.jar': b'geometry',
+            'hop/plugins/misc/hop-geometry-type/lib/jts-core-1.20.jar': b'jts',
+            'hop/plugins/transforms/vector-raster/dependencies.xml': b'<dependencies><folder>../../misc/hop-geometry-type</folder><folder>../../misc/hop-geometry-type/lib</folder></dependencies>',
         }
 
-        asset = builder.select_single_zip_asset(
-            release_payload,
-            asset_prefix=builder.GEOMETRY_INSPECTOR_ASSET_PREFIX,
-            repo_name=builder.GEOMETRY_INSPECTOR_REPO,
-        )
+    def test_runtime_contract(self):
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp)/'runtime.zip'
+            entries = self.runtime_entries()
+            self.make_archive(archive, entries)
+            builder.validate_runtime(archive)
+            entries['hop/plugins/transforms/vector-raster/lib/jts-core-1.20.jar'] = b'copy'
+            self.make_archive(archive, entries)
+            with self.assertRaisesRegex(builder.BuildError, 'Obsolete'):
+                builder.validate_runtime(archive)
 
-        self.assertEqual("hop-geometry-inspector-plugin-1.2.3.zip", asset.name)
-        self.assertEqual("generic", asset.target)
+    def test_missing_lib_reference_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp)/'runtime.zip'
+            entries = self.runtime_entries()
+            entries['hop/plugins/transforms/vector-raster/dependencies.xml'] = b'<dependencies><folder>../../misc/hop-geometry-type</folder></dependencies>'
+            self.make_archive(archive, entries)
+            with self.assertRaisesRegex(builder.BuildError, 'both central'):
+                builder.validate_runtime(archive)
 
-    def test_select_single_zip_asset_returns_ili2db_action_archive(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-action-ili2db-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ili2db-action.zip",
-                },
-                {
-                    "name": "hop-transform-ili2db-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ili2db-transform.zip",
-                },
-            ],
-        }
+    def test_merge_preserves_launchers_and_rejects_overlapping_plugins(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            hop, plugin, output = root/'hop.zip', root/'plugin.zip', root/'out.zip'
+            self.make_archive(hop, {'hop/lib/core.jar': b'core'})
+            with zipfile.ZipFile(hop, 'a') as archive:
+                info = zipfile.ZipInfo('hop/hop-run.sh')
+                info.external_attr = 0o100755 << 16
+                archive.writestr(info, b'#!/bin/sh\n')
+            self.make_archive(plugin, {'plugins/transforms/example/plugin.jar': b'plugin'})
+            item = builder.PluginArchive(plugin, 'plugins/transforms/example/')
+            builder.build_distribution_archive(hop_zip_path=hop, plugin_archives=[item], output_path=output)
+            with zipfile.ZipFile(output) as archive:
+                self.assertEqual(archive.getinfo('hop/hop-run.sh').external_attr >> 16, 0o100755)
+                self.assertEqual(archive.read('hop/plugins/transforms/example/plugin.jar'), b'plugin')
+            with self.assertRaisesRegex(builder.BuildError, 'overlap'):
+                builder.merge_zip_archives(hop_zip_path=hop, plugin_archives=[item,item], output_path=output)
 
-        asset = builder.select_single_zip_asset(
-            release_payload,
-            asset_prefix=builder.ILI2DB_ACTION_ASSET_PREFIX,
-            repo_name=builder.ILI2DB_PLUGIN_REPO,
-        )
+    def test_build_records_resolved_inputs_and_checksum(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            hop=root/'hop.zip'
+            self.make_archive(hop, {'hop/lib/core.jar':b'core'})
+            entries=self.runtime_entries()
+            config={'distribution_version':'0.2.0','hop_version':'2.19.0','hop_sha512':builder.digest(hop,'sha512'),
+                    'snapshot_repository':'https://example.test','plugins':[
+                        {'artifact':'geometry','version':'0.2.0-SNAPSHOT','root':'plugins/misc/hop-geometry-type'},
+                        {'artifact':'vector','version':'0.1.0-SNAPSHOT','root':'plugins/transforms/vector-raster'}]}
+            def download(url,path):
+                if url.endswith('maven-metadata.xml'):
+                    Path(path).write_text('<metadata><versioning><snapshotVersions><snapshotVersion><extension>zip</extension><value>0.2.0-20260911.100000-1</value></snapshotVersion></snapshotVersions></versioning></metadata>')
+                elif 'apache-hop-client' in url:
+                    Path(path).write_bytes(hop.read_bytes())
+                else:
+                    plugin_root=config['plugins'][0 if '/geometry/' in url else 1]['root']
+                    self.make_archive(path,{k.removeprefix('hop/'):v for k,v in entries.items() if k.startswith('hop/'+plugin_root)})
+            with patch.object(builder,'download',download):
+                metadata=builder.build(config,root/'dist')
+            artifact=root/'dist'/metadata['artifacts'][0]['file']
+            self.assertEqual(metadata['release_tag'],'v0.2.0')
+            self.assertEqual(metadata['artifacts'][0]['sha256'],builder.digest(artifact))
+            self.assertEqual(len(metadata['plugins']),2)
+            self.assertIn('20260911',metadata['plugins'][0]['resolved_version'])
+            self.assertEqual(len(list((root/'dist').glob('*.zip'))),1)
+            config['hop_sha512']='0'*128
+            with patch.object(builder,'download',download), self.assertRaisesRegex(builder.BuildError,'SHA-512'):
+                builder.build(config,root/'bad')
 
-        self.assertEqual("hop-action-ili2db-1.2.3.zip", asset.name)
-        self.assertEqual("generic", asset.target)
-
-    def test_select_single_zip_asset_returns_geoprocessing_archive(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-geoprocessing-plugin-1.2.3.zip",
-                    "browser_download_url": "https://example.test/geoprocessing.zip",
-                }
-            ],
-        }
-
-        asset = builder.select_single_zip_asset(
-            release_payload,
-            asset_prefix=builder.GEOPROCESSING_ASSET_PREFIX,
-            repo_name=builder.GEOPROCESSING_PLUGIN_REPO,
-        )
-
-        self.assertEqual("hop-geoprocessing-plugin-1.2.3.zip", asset.name)
-        self.assertEqual("generic", asset.target)
-
-    def test_select_single_zip_asset_returns_geometry_calculator_archive(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-geometry-calculator-plugin-1.2.3.zip",
-                    "browser_download_url": "https://example.test/geometry-calculator.zip",
-                }
-            ],
-        }
-
-        asset = builder.select_single_zip_asset(
-            release_payload,
-            asset_prefix=builder.GEOMETRY_CALCULATOR_ASSET_PREFIX,
-            repo_name=builder.GEOMETRY_CALCULATOR_PLUGIN_REPO,
-        )
-
-        self.assertEqual("hop-geometry-calculator-plugin-1.2.3.zip", asset.name)
-        self.assertEqual("generic", asset.target)
-
-    def test_select_single_zip_asset_requires_exactly_one_match(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-action-ili2db-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ili2db-action-1.zip",
-                },
-                {
-                    "name": "hop-action-ili2db-1.2.4.zip",
-                    "browser_download_url": "https://example.test/ili2db-action-2.zip",
-                },
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.ILI2DB_ACTION_ASSET_PREFIX,
-                repo_name=builder.ILI2DB_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_fails_when_missing(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-transform-ili2db-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ili2db-transform.zip",
-                }
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.ILI2DB_ACTION_ASSET_PREFIX,
-                repo_name=builder.ILI2DB_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_returns_ilivalidator_action_archive(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-action-ilivalidator-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ilivalidator-action.zip",
-                },
-                {
-                    "name": "hop-transform-ilivalidator-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ilivalidator-transform.zip",
-                },
-            ],
-        }
-
-        asset = builder.select_single_zip_asset(
-            release_payload,
-            asset_prefix=builder.ILIVALIDATOR_ACTION_ASSET_PREFIX,
-            repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
-        )
-
-        self.assertEqual("hop-action-ilivalidator-1.2.3.zip", asset.name)
-        self.assertEqual("generic", asset.target)
-
-    def test_select_single_zip_asset_rejects_duplicate_ilivalidator_action_assets(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-action-ilivalidator-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ilivalidator-action-1.zip",
-                },
-                {
-                    "name": "hop-action-ilivalidator-1.2.4.zip",
-                    "browser_download_url": "https://example.test/ilivalidator-action-2.zip",
-                },
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.ILIVALIDATOR_ACTION_ASSET_PREFIX,
-                repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_rejects_missing_ilivalidator_transform_asset(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-action-ilivalidator-1.2.3.zip",
-                    "browser_download_url": "https://example.test/ilivalidator-action.zip",
-                }
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.ILIVALIDATOR_TRANSFORM_ASSET_PREFIX,
-                repo_name=builder.ILIVALIDATOR_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_rejects_duplicate_geoprocessing_assets(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-geoprocessing-plugin-1.2.3.zip",
-                    "browser_download_url": "https://example.test/geoprocessing-1.zip",
-                },
-                {
-                    "name": "hop-geoprocessing-plugin-1.2.4.zip",
-                    "browser_download_url": "https://example.test/geoprocessing-2.zip",
-                },
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.GEOPROCESSING_ASSET_PREFIX,
-                repo_name=builder.GEOPROCESSING_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_rejects_missing_geoprocessing_asset(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "notes.txt",
-                    "browser_download_url": "https://example.test/notes.txt",
-                }
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.GEOPROCESSING_ASSET_PREFIX,
-                repo_name=builder.GEOPROCESSING_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_rejects_duplicate_geometry_calculator_assets(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "hop-geometry-calculator-plugin-1.2.3.zip",
-                    "browser_download_url": "https://example.test/geometry-calculator-1.zip",
-                },
-                {
-                    "name": "hop-geometry-calculator-plugin-1.2.4.zip",
-                    "browser_download_url": "https://example.test/geometry-calculator-2.zip",
-                },
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.GEOMETRY_CALCULATOR_ASSET_PREFIX,
-                repo_name=builder.GEOMETRY_CALCULATOR_PLUGIN_REPO,
-            )
-
-    def test_select_single_zip_asset_rejects_missing_geometry_calculator_asset(self) -> None:
-        release_payload = {
-            "tag_name": "v1.2.3",
-            "assets": [
-                {
-                    "name": "notes.txt",
-                    "browser_download_url": "https://example.test/notes.txt",
-                }
-            ],
-        }
-
-        with self.assertRaises(builder.BuildError):
-            builder.select_single_zip_asset(
-                release_payload,
-                asset_prefix=builder.GEOMETRY_CALCULATOR_ASSET_PREFIX,
-                repo_name=builder.GEOMETRY_CALCULATOR_PLUGIN_REPO,
-            )
-
-    def create_hop_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("hop/"), b"")
-            archive.writestr(self.dir_info("hop/lib/"), b"")
-            archive.writestr(self.dir_info("hop/plugins/"), b"")
-            archive.writestr(self.file_info("hop/lib/core.jar", 0o644), b"core")
-            archive.writestr(self.file_info("hop/hop-gui.sh", 0o755), b"#!/bin/sh\nexit 0\n")
-
-    def create_suite_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/transforms/gdal-suite/"), b"")
-            archive.writestr(self.dir_info("plugins/transforms/gdal-suite/lib/"), b"")
-            archive.writestr(
-                self.file_info("plugins/transforms/gdal-suite/hop-transform-ogr-reader.jar", 0o644),
-                b"ogr-reader",
-            )
-            archive.writestr(
-                self.file_info("plugins/transforms/gdal-suite/hop-transform-ogr-exporter.jar", 0o644),
-                b"ogr-exporter",
-            )
-            archive.writestr(
-                self.file_info(
-                    "plugins/transforms/gdal-suite/hop-transform-gdal-raster-info.jar",
-                    0o644,
-                ),
-                b"raster-info",
-            )
-            archive.writestr(
-                self.file_info(
-                    "plugins/transforms/gdal-suite/hop-transform-gdal-raster-clip.jar",
-                    0o644,
-                ),
-                b"raster-clip",
-            )
-            archive.writestr(
-                self.file_info("plugins/transforms/gdal-suite/lib/hop-ogr-core.jar", 0o644),
-                b"core-lib",
-            )
-
-    def create_geometry_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/misc/hop-geometry-inspector/"), b"")
-            archive.writestr(
-                self.file_info(
-                    "plugins/misc/hop-geometry-inspector/geometry-inspector.jar",
-                    0o644,
-                ),
-                b"geometry",
-            )
-
-    def create_ili2db_action_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/actions/ili2db/"), b"")
-            archive.writestr(
-                self.file_info("plugins/actions/ili2db/hop-action-ili2db.jar", 0o644),
-                b"ili2db-action",
-            )
-
-    def create_geoprocessing_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/transforms/hop-geoprocessing/"), b"")
-            archive.writestr(
-                self.file_info(
-                    "plugins/transforms/hop-geoprocessing/geoprocessing.jar",
-                    0o644,
-                ),
-                b"geoprocessing",
-            )
-
-    def create_geometry_calculator_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/transforms/hop-geometry-calculator/"), b"")
-            archive.writestr(
-                self.file_info(
-                    "plugins/transforms/hop-geometry-calculator/hop-transform-geometry-calculator.jar",
-                    0o644,
-                ),
-                b"geometry-calculator",
-            )
-
-    def create_ili2db_transform_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/transforms/ili2db/"), b"")
-            archive.writestr(
-                self.file_info("plugins/transforms/ili2db/hop-transform-ili2db.jar", 0o644),
-                b"ili2db-transform",
-            )
-
-    def create_ilivalidator_action_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/actions/ilivalidator/"), b"")
-            archive.writestr(
-                self.file_info(
-                    "plugins/actions/ilivalidator/hop-action-ilivalidator.jar",
-                    0o644,
-                ),
-                b"ilivalidator-action",
-            )
-
-    def create_ilivalidator_transform_zip(self, path: Path) -> None:
-        with zipfile.ZipFile(path, "w") as archive:
-            archive.writestr(self.dir_info("plugins/transforms/ilivalidator/"), b"")
-            archive.writestr(
-                self.file_info(
-                    "plugins/transforms/ilivalidator/hop-transform-ilivalidator.jar",
-                    0o644,
-                ),
-                b"ilivalidator-transform",
-            )
-
-    def dir_info(self, name: str) -> zipfile.ZipInfo:
-        info = zipfile.ZipInfo(name)
-        info.create_system = 3
-        info.external_attr = 0o755 << 16
-        return info
-
-    def file_info(self, name: str, mode: int) -> zipfile.ZipInfo:
-        info = zipfile.ZipInfo(name)
-        info.create_system = 3
-        info.external_attr = mode << 16
-        info.compress_type = zipfile.ZIP_DEFLATED
-        return info
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()

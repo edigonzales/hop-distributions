@@ -1,0 +1,103 @@
+<pipeline>
+  <info>
+    <name>Clip local GeoTIFF or public COG</name>
+    <pipeline_type>Normal</pipeline_type>
+    <parameters>
+      <parameter>
+        <name>INPUT_RASTER</name>
+        <default_value />
+        <description>Local GeoTIFF or public HTTP COG</description>
+      </parameter>
+      <parameter>
+        <name>BBOX_CRS</name>
+        <default_value>EPSG:2056</default_value>
+        <description>CRS of the bounding box</description>
+      </parameter>
+      <parameter>
+        <name>MIN_X</name>
+        <default_value>2607400</default_value>
+        <description>Minimum X</description>
+      </parameter>
+      <parameter>
+        <name>MIN_Y</name>
+        <default_value>1228400</default_value>
+        <description>Minimum Y</description>
+      </parameter>
+      <parameter>
+        <name>MAX_X</name>
+        <default_value>2607500</default_value>
+        <description>Maximum X</description>
+      </parameter>
+      <parameter>
+        <name>MAX_Y</name>
+        <default_value>1228500</default_value>
+        <description>Maximum Y</description>
+      </parameter>
+      <parameter>
+        <name>NODATA</name>
+        <default_value />
+        <description>Optional NoData override</description>
+      </parameter>
+      <parameter>
+        <name>OUTPUT_FILE</name>
+        <default_value />
+        <description>New local output GeoTIFF</description>
+      </parameter>
+    </parameters>
+  </info>
+  <order>
+    <hop>
+      <from>One operation</from>
+      <to>Clip raster</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+  <transform>
+    <name>One operation</name>
+    <type>RowGenerator</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <limit>1</limit>
+    <never_ending>N</never_ending>
+    <fields>
+      <field>
+        <name>operation_id</name>
+        <type>Integer</type>
+        <nullif>1</nullif>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>150</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </transform>
+  <transform>
+    <name>Clip raster</name>
+    <type>SOGIS_RASTER_CLIP</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <source>${INPUT_RASTER}</source>
+    <sourceField>N</sourceField>
+    <clipMethod>BOUNDING_BOX</clipMethod>
+    <explicitCrs>${BBOX_CRS}</explicitCrs>
+    <minX>${MIN_X}</minX>
+    <minY>${MIN_Y}</minY>
+    <maxX>${MAX_X}</maxX>
+    <maxY>${MAX_Y}</maxY>
+    <bboxFields>N</bboxFields>
+    <band>1</band>
+    <noData>${NODATA}</noData>
+    <output>${OUTPUT_FILE}</output>
+    <outputField>N</outputField>
+    <overwrite>N</overwrite>
+    <prefix>raster_</prefix>
+    <GUI>
+      <xloc>450</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </transform>
+  <transform_error_handling />
+  <attributes />
+</pipeline>

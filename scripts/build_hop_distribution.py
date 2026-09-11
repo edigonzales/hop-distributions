@@ -1,622 +1,127 @@
 #!/usr/bin/env python3
+"""Assemble one Hop distribution from current installable Maven snapshots."""
 from __future__ import annotations
-
 import argparse
 from contextlib import ExitStack
+from dataclasses import dataclass
 import hashlib
 import json
 import os
-import re
-import sys
-import tempfile
-import urllib.error
-import urllib.request
-import zipfile
-from dataclasses import dataclass
 from pathlib import Path
-
-SUPPORTED_TARGETS = (
-    "linux-x86_64",
-    "linux-aarch64",
-    "osx-x86_64",
-    "osx-aarch64",
-    "windows-x86_64",
-)
-
-GITHUB_API_BASE = "https://api.github.com"
-GDAL_PLUGIN_REPO = "edigonzales/hop-gdal-plugin"
-GEOTOOLS_PLUGIN_REPO = "edigonzales/hop-geotools-plugin"
-GEOMETRY_INSPECTOR_REPO = "edigonzales/hop-geometry-inspector-plugin"
-ILI2DB_PLUGIN_REPO = "edigonzales/hop-ili2db-plugin"
-ILIVALIDATOR_PLUGIN_REPO = "edigonzales/hop-ilivalidator-plugin"
-GEOPROCESSING_PLUGIN_REPO = "edigonzales/hop-geoprocessing-plugin"
-GEOMETRY_CALCULATOR_PLUGIN_REPO = "edigonzales/hop-geometry-calculator-plugin"
-APACHE_HOP_DOWNLOAD_BASE = "https://downloads.apache.org/hop"
-USER_AGENT = "hop-distributions-builder/1.0"
-GDAL_SUITE_PREFIX = "hop-gdal-suite-"
-GDAL_PLUGIN_PREFIX = "plugins/transforms/gdal-suite/"
-GEOTOOLS_ASSET_PREFIX = "hop-geotools-plugin-"
-GEOTOOLS_PLUGIN_PREFIX = "plugins/transforms/geotools-vector/"
-GEOMETRY_INSPECTOR_ASSET_PREFIX = "hop-geometry-inspector-plugin-"
-GEOMETRY_INSPECTOR_PLUGIN_PREFIX = "plugins/misc/hop-geometry-inspector/"
-GEOPROCESSING_ASSET_PREFIX = "hop-geoprocessing-plugin-"
-GEOPROCESSING_PLUGIN_PREFIX = "plugins/transforms/hop-geoprocessing/"
-GEOMETRY_CALCULATOR_ASSET_PREFIX = "hop-geometry-calculator-plugin-"
-GEOMETRY_CALCULATOR_PLUGIN_PREFIX = "plugins/transforms/hop-geometry-calculator/"
-ILI2DB_ACTION_ASSET_PREFIX = "hop-action-ili2db-"
-ILI2DB_ACTION_PLUGIN_PREFIX = "plugins/actions/ili2db/"
-ILI2DB_TRANSFORM_ASSET_PREFIX = "hop-transform-ili2db-"
-ILI2DB_TRANSFORM_PLUGIN_PREFIX = "plugins/transforms/ili2db/"
-ILIVALIDATOR_ACTION_ASSET_PREFIX = "hop-action-ilivalidator-"
-ILIVALIDATOR_ACTION_PLUGIN_PREFIX = "plugins/actions/ilivalidator/"
-ILIVALIDATOR_TRANSFORM_ASSET_PREFIX = "hop-transform-ilivalidator-"
-ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX = "plugins/transforms/ilivalidator/"
-MAX_TAG_ID_LENGTH = 24
-
+import re
+import tempfile
+import urllib.request
+import xml.etree.ElementTree as ET
+import zipfile
 
 class BuildError(RuntimeError):
     pass
-
-
-@dataclass(frozen=True)
-class ReleaseAsset:
-    name: str
-    download_url: str
-    target: str
-
 
 @dataclass(frozen=True)
 class PluginArchive:
     path: Path
     required_prefix: str
 
+def digest(path, algorithm="sha256"):
+    value = hashlib.new(algorithm)
+    with Path(path).open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            value.update(chunk)
+    return value.hexdigest()
 
-def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description=(
-            "Build an Apache Hop client distribution with the hop-gdal-plugin gdal suite, "
-            "hop-geotools-plugin, hop-geometry-inspector-plugin, hop-geoprocessing-plugin, "
-            "hop-geometry-calculator-plugin, hop-ili2db-plugin, and hop-ilivalidator-plugin merged in."
-        )
-    )
-    parser.add_argument("--hop-version", required=True, help="Apache Hop version, for example 2.17.0.")
-    parser.add_argument(
-        "--plugin-release",
-        default="latest",
-        help="hop-gdal-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--geotools-release",
-        default="latest",
-        help="hop-geotools-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--geometry-inspector-release",
-        default="latest",
-        help="hop-geometry-inspector-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--geoprocessing-release",
-        default="latest",
-        help="hop-geoprocessing-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--geometry-calculator-release",
-        default="latest",
-        help="hop-geometry-calculator-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--ili2db-release",
-        default="latest",
-        help="hop-ili2db-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--ilivalidator-release",
-        default="latest",
-        help="hop-ilivalidator-plugin release tag to use, or 'latest' (default).",
-    )
-    parser.add_argument(
-        "--target",
-        action="append",
-        choices=SUPPORTED_TARGETS,
-        help="Target classifier to build. May be specified multiple times. Defaults to all supported targets.",
-    )
-    parser.add_argument("--output-dir", required=True, help="Directory for generated ZIP files.")
-    parser.add_argument(
-        "--metadata-file",
-        help="Optional path for generated build metadata JSON. Defaults to <output-dir>/release-metadata.json.",
-    )
-    return parser.parse_args(argv)
+def download(url, path):
+    request = urllib.request.Request(url, headers={"User-Agent": "hop-distributions/0.2"})
+    with urllib.request.urlopen(request, timeout=120) as source, Path(path).open("wb") as out:
+        while chunk := source.read(1024 * 1024):
+            out.write(chunk)
 
+def resolve_snapshot(metadata, artifact):
+    root = ET.fromstring(metadata)
+    versions = [node for node in root.findall("./versioning/snapshotVersions/snapshotVersion")
+                if node.findtext("extension") == "zip" and not node.findtext("classifier")]
+    if not versions:
+        raise BuildError(f"No installable ZIP snapshot for {artifact}")
+    version = max(versions, key=lambda node: node.findtext("updated", "")).findtext("value")
+    if not version or not re.fullmatch(r"[A-Za-z0-9_.-]+", version):
+        raise BuildError(f"Invalid resolved snapshot for {artifact}")
+    return version
 
-def main(argv: list[str] | None = None) -> int:
-    args = parse_args(argv)
-    targets = deduplicate_targets(args.target or list(SUPPORTED_TARGETS))
-    output_dir = Path(args.output_dir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    metadata_file = Path(args.metadata_file).resolve() if args.metadata_file else output_dir / "release-metadata.json"
-    metadata_file.parent.mkdir(parents=True, exist_ok=True)
+def validate_runtime(archive, prefix="hop/"):
+    with zipfile.ZipFile(archive) as z:
+        names = z.namelist()
+        central = prefix + "plugins/misc/hop-geometry-type/"
+        vector = prefix + "plugins/transforms/vector-raster/"
+        for stem, folder in [("hop-geometry-type-", central), ("jts-core-", central + "lib/")]:
+            matches = [n for n in names if n.startswith(central) and Path(n).name.startswith(stem) and n.endswith(".jar")]
+            if len(matches) != 1 or not matches[0].startswith(folder):
+                raise BuildError(f"Expected one central {stem} runtime under {folder}: {matches}")
+        for name in names:
+            if name.startswith(vector) and Path(name).name.startswith(("hop-geometry-type-", "jts-core-")) and name.endswith(".jar"):
+                raise BuildError(f"Obsolete Vector Raster snapshot bundles runtime: {name}")
+            if name.startswith(central) and Path(name).name.startswith(("postgresql-", "postgis-jdbc-")):
+                raise BuildError(f"Database driver in shared Geometry runtime: {name}")
+        try:
+            deps = ET.fromstring(z.read(vector + "dependencies.xml"))
+        except (KeyError, ET.ParseError) as error:
+            raise BuildError("Vector Raster requires its corrected dependencies.xml") from error
+        folders = {n.text for n in deps.findall("folder")}
+        if not {"../../misc/hop-geometry-type", "../../misc/hop-geometry-type/lib"} <= folders:
+            raise BuildError("Vector Raster must reference both central Geometry folders")
 
-    try:
-        metadata = build_distributions(
-            hop_version=args.hop_version,
-            plugin_release=args.plugin_release,
-            geotools_release=args.geotools_release,
-            geometry_inspector_release=args.geometry_inspector_release,
-            geoprocessing_release=args.geoprocessing_release,
-            geometry_calculator_release=args.geometry_calculator_release,
-            ili2db_release=args.ili2db_release,
-            ilivalidator_release=args.ilivalidator_release,
-            targets=targets,
-            output_dir=output_dir,
-        )
-    except BuildError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        return 1
+def build(config, output):
+    output.mkdir(parents=True, exist_ok=True)
+    version = config["distribution_version"]
+    hop = config["hop_version"]
+    with tempfile.TemporaryDirectory(prefix="hop-inputs-") as directory:
+        work = Path(directory)
+        hop_name = f"apache-hop-client-{hop}.zip"
+        hop_url = f"https://downloads.apache.org/hop/{hop}/{hop_name}"
+        hop_zip = work / hop_name
+        try:
+            download(hop_url, hop_zip)
+        except Exception:
+            hop_url = f"https://archive.apache.org/dist/hop/{hop}/{hop_name}"
+            download(hop_url, hop_zip)
+        actual = digest(hop_zip, "sha512")
+        if actual != config["hop_sha512"]:
+            raise BuildError("Apache Hop SHA-512 mismatch")
+        plugins = []
+        resolved = []
+        for spec in config["plugins"]:
+            artifact = spec["artifact"]
+            base = f'{config["snapshot_repository"]}/ch/so/agi/{artifact}/{spec["version"]}/'
+            metadata_file = work / (artifact + ".xml")
+            download(base + "maven-metadata.xml", metadata_file)
+            snapshot = resolve_snapshot(metadata_file.read_bytes(), artifact)
+            url = base + f"{artifact}-{snapshot}.zip"
+            target = work / (artifact + ".zip")
+            download(url, target)
+            with zipfile.ZipFile(target) as z:
+                for name in z.namelist():
+                    normalized = normalize_zip_entry_name(name)
+                    if not normalized.endswith("/") and not normalized.startswith(spec["root"] + "/"):
+                        raise BuildError(f"Unexpected plugin file {artifact}: {name}")
+            plugins.append(PluginArchive(target, spec["root"] + "/"))
+            resolved.append(dict(spec, resolved_version=snapshot, url=url, sha256=digest(target)))
+        name = f"apache-hop-client-{hop}-geo-{version}.zip"
+        archive = output / name
+        build_distribution_archive(hop_zip_path=hop_zip, plugin_archives=plugins, output_path=archive)
+        validate_runtime(archive)
+        metadata = {"schema_version": 1, "distribution_version": version, "hop_version": hop,
+                    "commit_sha": os.environ.get("GITHUB_SHA", ""), "release_tag": "v" + version,
+                    "release_name": f"Hop Geo Distribution {version} (Apache Hop {hop})",
+                    "hop": {"url": hop_url, "sha512": actual}, "plugins": resolved,
+                    "artifacts": [{"file": name, "sha256": digest(archive)}]}
+        (output / "release-metadata.json").write_text(json.dumps(metadata, indent=2) + "\n")
+        (output / (name + ".sha256")).write_text(f'{digest(archive)}  {name}\n')
+        return metadata
 
-    metadata_file.write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(metadata, indent=2))
-    return 0
-
-
-def deduplicate_targets(targets: list[str]) -> list[str]:
-    seen: set[str] = set()
-    ordered_targets: list[str] = []
-    for target in targets:
-        if target in seen:
-            continue
-        seen.add(target)
-        ordered_targets.append(target)
-    return ordered_targets
-
-
-def build_distributions(
-    *,
-    hop_version: str,
-    plugin_release: str,
-    geotools_release: str,
-    geometry_inspector_release: str,
-    geoprocessing_release: str,
-    geometry_calculator_release: str,
-    ili2db_release: str,
-    ilivalidator_release: str,
-    targets: list[str],
-    output_dir: Path,
-) -> dict:
-    with tempfile.TemporaryDirectory(prefix="hop-dist-build-") as temp_dir_name:
-        temp_dir = Path(temp_dir_name)
-        hop_zip_path = download_hop_archive(temp_dir=temp_dir, hop_version=hop_version)
-        gdal_release_payload = fetch_github_release(GDAL_PLUGIN_REPO, plugin_release)
-        gdal_assets_by_target = select_gdal_suite_assets(gdal_release_payload)
-        geotools_release_payload = fetch_github_release(
-            GEOTOOLS_PLUGIN_REPO,
-            geotools_release,
-        )
-        geotools_asset = select_single_zip_asset(
-            geotools_release_payload,
-            asset_prefix=GEOTOOLS_ASSET_PREFIX,
-            repo_name=GEOTOOLS_PLUGIN_REPO,
-        )
-        geometry_release_payload = fetch_github_release(
-            GEOMETRY_INSPECTOR_REPO,
-            geometry_inspector_release,
-        )
-        geometry_asset = select_single_zip_asset(
-            geometry_release_payload,
-            asset_prefix=GEOMETRY_INSPECTOR_ASSET_PREFIX,
-            repo_name=GEOMETRY_INSPECTOR_REPO,
-        )
-        geoprocessing_release_payload = fetch_github_release(
-            GEOPROCESSING_PLUGIN_REPO,
-            geoprocessing_release,
-        )
-        geoprocessing_asset = select_single_zip_asset(
-            geoprocessing_release_payload,
-            asset_prefix=GEOPROCESSING_ASSET_PREFIX,
-            repo_name=GEOPROCESSING_PLUGIN_REPO,
-        )
-        geometry_calculator_release_payload = fetch_github_release(
-            GEOMETRY_CALCULATOR_PLUGIN_REPO,
-            geometry_calculator_release,
-        )
-        geometry_calculator_asset = select_single_zip_asset(
-            geometry_calculator_release_payload,
-            asset_prefix=GEOMETRY_CALCULATOR_ASSET_PREFIX,
-            repo_name=GEOMETRY_CALCULATOR_PLUGIN_REPO,
-        )
-        ili2db_release_payload = fetch_github_release(
-            ILI2DB_PLUGIN_REPO,
-            ili2db_release,
-        )
-        ili2db_action_asset = select_single_zip_asset(
-            ili2db_release_payload,
-            asset_prefix=ILI2DB_ACTION_ASSET_PREFIX,
-            repo_name=ILI2DB_PLUGIN_REPO,
-        )
-        ili2db_transform_asset = select_single_zip_asset(
-            ili2db_release_payload,
-            asset_prefix=ILI2DB_TRANSFORM_ASSET_PREFIX,
-            repo_name=ILI2DB_PLUGIN_REPO,
-        )
-        ilivalidator_release_payload = fetch_github_release(
-            ILIVALIDATOR_PLUGIN_REPO,
-            ilivalidator_release,
-        )
-        ilivalidator_action_asset = select_single_zip_asset(
-            ilivalidator_release_payload,
-            asset_prefix=ILIVALIDATOR_ACTION_ASSET_PREFIX,
-            repo_name=ILIVALIDATOR_PLUGIN_REPO,
-        )
-        ilivalidator_transform_asset = select_single_zip_asset(
-            ilivalidator_release_payload,
-            asset_prefix=ILIVALIDATOR_TRANSFORM_ASSET_PREFIX,
-            repo_name=ILIVALIDATOR_PLUGIN_REPO,
-        )
-
-        plugin_tag = gdal_release_payload["tag_name"]
-        plugin_tag_safe = compact_tag_component(plugin_tag)
-        geotools_plugin_tag = geotools_release_payload["tag_name"]
-        geotools_plugin_tag_safe = compact_tag_component(geotools_plugin_tag)
-        geometry_plugin_tag = geometry_release_payload["tag_name"]
-        geometry_plugin_tag_safe = compact_tag_component(geometry_plugin_tag)
-        geoprocessing_plugin_tag = geoprocessing_release_payload["tag_name"]
-        geoprocessing_plugin_tag_safe = compact_tag_component(geoprocessing_plugin_tag)
-        geometry_calculator_plugin_tag = geometry_calculator_release_payload["tag_name"]
-        geometry_calculator_plugin_tag_safe = compact_tag_component(geometry_calculator_plugin_tag)
-        ili2db_plugin_tag = ili2db_release_payload["tag_name"]
-        ili2db_plugin_tag_safe = compact_tag_component(ili2db_plugin_tag)
-        ilivalidator_plugin_tag = ilivalidator_release_payload["tag_name"]
-        ilivalidator_plugin_tag_safe = compact_tag_component(ilivalidator_plugin_tag)
-        geotools_plugin_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=geotools_asset,
-            required_prefix=GEOTOOLS_PLUGIN_PREFIX,
-        )
-        geometry_plugin_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=geometry_asset,
-            required_prefix=GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
-        )
-        geoprocessing_plugin_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=geoprocessing_asset,
-            required_prefix=GEOPROCESSING_PLUGIN_PREFIX,
-        )
-        geometry_calculator_plugin_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=geometry_calculator_asset,
-            required_prefix=GEOMETRY_CALCULATOR_PLUGIN_PREFIX,
-        )
-        ili2db_action_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=ili2db_action_asset,
-            required_prefix=ILI2DB_ACTION_PLUGIN_PREFIX,
-        )
-        ili2db_transform_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=ili2db_transform_asset,
-            required_prefix=ILI2DB_TRANSFORM_PLUGIN_PREFIX,
-        )
-        ilivalidator_action_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=ilivalidator_action_asset,
-            required_prefix=ILIVALIDATOR_ACTION_PLUGIN_PREFIX,
-        )
-        ilivalidator_transform_zip_path = download_release_asset(
-            temp_dir=temp_dir,
-            asset=ilivalidator_transform_asset,
-            required_prefix=ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX,
-        )
-        artifacts: list[dict[str, str]] = []
-
-        for target in targets:
-            suite_asset = gdal_assets_by_target[target]
-            suite_zip_path = download_release_asset(
-                temp_dir=temp_dir,
-                asset=suite_asset,
-                required_prefix=GDAL_PLUGIN_PREFIX,
-            )
-            output_name = (
-                f"apache-hop-client-{hop_version}-hop-plugins-"
-                f"{plugin_tag_safe}-{geotools_plugin_tag_safe}-{geometry_plugin_tag_safe}-"
-                f"{ili2db_plugin_tag_safe}-{ilivalidator_plugin_tag_safe}-"
-                f"{geoprocessing_plugin_tag_safe}-{geometry_calculator_plugin_tag_safe}-{target}.zip"
-            )
-            output_path = output_dir / output_name
-            build_distribution_archive(
-                hop_zip_path=hop_zip_path,
-                plugin_archives=[
-                    PluginArchive(path=suite_zip_path, required_prefix=GDAL_PLUGIN_PREFIX),
-                    PluginArchive(
-                        path=geotools_plugin_zip_path,
-                        required_prefix=GEOTOOLS_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=geometry_plugin_zip_path,
-                        required_prefix=GEOMETRY_INSPECTOR_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=ili2db_action_zip_path,
-                        required_prefix=ILI2DB_ACTION_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=ili2db_transform_zip_path,
-                        required_prefix=ILI2DB_TRANSFORM_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=ilivalidator_action_zip_path,
-                        required_prefix=ILIVALIDATOR_ACTION_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=ilivalidator_transform_zip_path,
-                        required_prefix=ILIVALIDATOR_TRANSFORM_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=geoprocessing_plugin_zip_path,
-                        required_prefix=GEOPROCESSING_PLUGIN_PREFIX,
-                    ),
-                    PluginArchive(
-                        path=geometry_calculator_plugin_zip_path,
-                        required_prefix=GEOMETRY_CALCULATOR_PLUGIN_PREFIX,
-                    ),
-                ],
-                output_path=output_path,
-            )
-            artifacts.append({"target": target, "file": output_name})
-
-        short_sha = sanitize_tag_component((get_commit_sha() or "manual")[:7])
-        return {
-            "hop_version": hop_version,
-            "plugin_release_tag": plugin_tag,
-            "plugin_release_name": gdal_release_payload.get("name") or plugin_tag,
-            "plugin_tag_safe": plugin_tag_safe,
-            "geotools_release_tag": geotools_plugin_tag,
-            "geotools_release_name": geotools_release_payload.get("name") or geotools_plugin_tag,
-            "geotools_tag_safe": geotools_plugin_tag_safe,
-            "geometry_inspector_release_tag": geometry_plugin_tag,
-            "geometry_inspector_release_name": (
-                geometry_release_payload.get("name") or geometry_plugin_tag
-            ),
-            "geometry_inspector_tag_safe": geometry_plugin_tag_safe,
-            "geoprocessing_release_tag": geoprocessing_plugin_tag,
-            "geoprocessing_release_name": (
-                geoprocessing_release_payload.get("name") or geoprocessing_plugin_tag
-            ),
-            "geoprocessing_tag_safe": geoprocessing_plugin_tag_safe,
-            "geometry_calculator_release_tag": geometry_calculator_plugin_tag,
-            "geometry_calculator_release_name": (
-                geometry_calculator_release_payload.get("name") or geometry_calculator_plugin_tag
-            ),
-            "geometry_calculator_tag_safe": geometry_calculator_plugin_tag_safe,
-            "ili2db_release_tag": ili2db_plugin_tag,
-            "ili2db_release_name": ili2db_release_payload.get("name") or ili2db_plugin_tag,
-            "ili2db_tag_safe": ili2db_plugin_tag_safe,
-            "ilivalidator_release_tag": ilivalidator_plugin_tag,
-            "ilivalidator_release_name": (
-                ilivalidator_release_payload.get("name") or ilivalidator_plugin_tag
-            ),
-            "ilivalidator_tag_safe": ilivalidator_plugin_tag_safe,
-            "targets": targets,
-            "artifacts": artifacts,
-            "release_tag": (
-                f"hop-{hop_version}-{plugin_tag_safe}-{geotools_plugin_tag_safe}-"
-                f"{geometry_plugin_tag_safe}-{ili2db_plugin_tag_safe}-"
-                f"{ilivalidator_plugin_tag_safe}-{geoprocessing_plugin_tag_safe}-"
-                f"{geometry_calculator_plugin_tag_safe}-{short_sha}"
-            ),
-            "release_name": (
-                f"Apache Hop {hop_version} + hop-gdal-plugin {plugin_tag} "
-                f"+ hop-geotools-plugin {geotools_plugin_tag} "
-                f"+ hop-geometry-inspector-plugin {geometry_plugin_tag} "
-                f"+ hop-ili2db-plugin {ili2db_plugin_tag} "
-                f"+ hop-ilivalidator-plugin {ilivalidator_plugin_tag} "
-                f"+ hop-geoprocessing-plugin {geoprocessing_plugin_tag} "
-                f"+ hop-geometry-calculator-plugin {geometry_calculator_plugin_tag} ({short_sha})"
-            ),
-            "commit_sha": get_commit_sha(),
-        }
-
-
-def get_commit_sha() -> str | None:
-    for key in ("GITHUB_SHA", "CI_COMMIT_SHA"):
-        value = os.environ.get(key, "").strip()
-        if value:
-            return value
-    return None
-
-
-def sanitize_tag_component(value: str) -> str:
-    sanitized = re.sub(r"[^0-9A-Za-z._-]+", "-", value.strip())
-    sanitized = re.sub(r"-{2,}", "-", sanitized).strip("-")
-    if not sanitized:
-        raise BuildError(f"Could not derive a safe identifier from '{value}'.")
-    return sanitized
-
-
-def compact_tag_component(value: str) -> str:
-    sanitized = sanitize_tag_component(value)
-    if len(sanitized) <= MAX_TAG_ID_LENGTH:
-        return sanitized
-
-    match = re.search(r"-([0-9a-fA-F]{7,12})$", sanitized)
-    if match:
-        return match.group(1).lower()
-
-    digest = hashlib.sha1(sanitized.encode("utf-8")).hexdigest()[:8]
-    prefix_length = MAX_TAG_ID_LENGTH - len(digest) - 1
-    prefix = sanitized[:prefix_length].rstrip("-")
-    if not prefix:
-        prefix = sanitized[:prefix_length]
-    return f"{prefix}-{digest}"
-
-
-def fetch_github_release(repo_name: str, release_name: str) -> dict:
-    if release_name == "latest":
-        url = f"{GITHUB_API_BASE}/repos/{repo_name}/releases/latest"
-    else:
-        url = f"{GITHUB_API_BASE}/repos/{repo_name}/releases/tags/{release_name}"
-
-    try:
-        payload = fetch_json(url)
-    except BuildError as exc:
-        if release_name == "latest":
-            raise BuildError(
-                f"Could not resolve the latest public release for {repo_name}: {exc}"
-            ) from exc
-        raise
-
-    if payload.get("draft"):
-        raise BuildError(f"Release '{payload.get('tag_name', release_name)}' is still a draft.")
-    if payload.get("prerelease"):
-        raise BuildError(f"Release '{payload.get('tag_name', release_name)}' is marked as a prerelease.")
-    if not payload.get("assets"):
-        raise BuildError(f"Release '{payload.get('tag_name', release_name)}' does not contain any assets.")
-    return payload
-
-
-def select_gdal_suite_assets(release_payload: dict) -> dict[str, ReleaseAsset]:
-    assets_by_target: dict[str, ReleaseAsset] = {}
-    for raw_asset in release_payload.get("assets", []):
-        name = raw_asset.get("name")
-        download_url = raw_asset.get("browser_download_url")
-        if not name or not download_url:
-            continue
-
-        matched_target = None
-        for target in SUPPORTED_TARGETS:
-            if name.startswith(GDAL_SUITE_PREFIX) and name.endswith(f"-{target}.zip"):
-                matched_target = target
-                break
-
-        if not matched_target:
-            continue
-        if matched_target in assets_by_target:
-            raise BuildError(
-                f"Release '{release_payload.get('tag_name')}' contains multiple suite assets for {matched_target}."
-            )
-
-        assets_by_target[matched_target] = ReleaseAsset(
-            name=name,
-            download_url=download_url,
-            target=matched_target,
-        )
-
-    missing_targets = [target for target in SUPPORTED_TARGETS if target not in assets_by_target]
-    if missing_targets:
-        missing = ", ".join(missing_targets)
-        raise BuildError(
-            f"Release '{release_payload.get('tag_name')}' is missing required suite assets for: {missing}."
-        )
-    return assets_by_target
-
-
-def download_hop_archive(*, temp_dir: Path, hop_version: str) -> Path:
-    archive_name = f"apache-hop-client-{hop_version}.zip"
-    archive_url = f"{APACHE_HOP_DOWNLOAD_BASE}/{hop_version}/{archive_name}"
-    checksum_url = f"{archive_url}.sha512"
-    archive_path = temp_dir / archive_name
-
-    download_file(archive_url, archive_path)
-    expected_sha512 = parse_sha512_file(fetch_text(checksum_url), archive_name)
-    actual_sha512 = calculate_sha512(archive_path)
-    if actual_sha512 != expected_sha512:
-        raise BuildError(
-            f"SHA-512 mismatch for {archive_name}: expected {expected_sha512}, got {actual_sha512}."
-        )
-    return archive_path
-
-
-def select_single_zip_asset(release_payload: dict, *, asset_prefix: str, repo_name: str) -> ReleaseAsset:
-    matching_assets = [
-        asset
-        for asset in release_payload.get("assets", [])
-        if asset.get("name", "").startswith(asset_prefix) and asset.get("name", "").endswith(".zip")
-    ]
-    if len(matching_assets) != 1:
-        raise BuildError(
-            f"Release '{release_payload.get('tag_name')}' in {repo_name} must contain exactly one '{asset_prefix}*.zip' asset."
-        )
-    asset = matching_assets[0]
-    return ReleaseAsset(name=asset["name"], download_url=asset["browser_download_url"], target="generic")
-
-
-def download_release_asset(*, temp_dir: Path, asset: ReleaseAsset, required_prefix: str) -> Path:
-    asset_path = temp_dir / asset.name
-    if asset_path.exists():
-        return asset_path
-    download_file(asset.download_url, asset_path)
-    validate_plugin_archive(asset_path, required_prefix)
-    return asset_path
-
-
-def fetch_json(url: str) -> dict:
-    data = fetch_bytes(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": USER_AGENT,
-        },
-    )
-    try:
-        return json.loads(data.decode("utf-8"))
-    except json.JSONDecodeError as exc:
-        raise BuildError(f"Response from {url} is not valid JSON.") from exc
-
-
-def fetch_text(url: str) -> str:
-    return fetch_bytes(url, headers={"User-Agent": USER_AGENT}).decode("utf-8")
-
-
-def download_file(url: str, destination: Path) -> None:
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    try:
-        with urllib.request.urlopen(request) as response, destination.open("wb") as handle:
-            while True:
-                chunk = response.read(1024 * 1024)
-                if not chunk:
-                    break
-                handle.write(chunk)
-    except urllib.error.HTTPError as exc:
-        raise BuildError(f"HTTP {exc.code} while requesting {url}.") from exc
-    except urllib.error.URLError as exc:
-        raise BuildError(f"Could not reach {url}: {exc.reason}.") from exc
-
-
-def fetch_bytes(url: str, headers: dict[str, str]) -> bytes:
-    request = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(request) as response:
-            return response.read()
-    except urllib.error.HTTPError as exc:
-        raise BuildError(f"HTTP {exc.code} while requesting {url}.") from exc
-    except urllib.error.URLError as exc:
-        raise BuildError(f"Could not reach {url}: {exc.reason}.") from exc
-
-
-def parse_sha512_file(contents: str, archive_name: str) -> str:
-    line = contents.strip().splitlines()[0].strip()
-    parts = line.split()
-    if len(parts) < 2:
-        raise BuildError(f"Unexpected SHA-512 file format for {archive_name}.")
-    checksum = parts[0]
-    referenced_file = parts[-1].lstrip("*")
-    if referenced_file != archive_name:
-        raise BuildError(
-            f"SHA-512 file references '{referenced_file}' instead of '{archive_name}'."
-        )
-    if not re.fullmatch(r"[0-9a-fA-F]{128}", checksum):
-        raise BuildError(f"Invalid SHA-512 checksum for {archive_name}.")
-    return checksum.lower()
-
-
-def calculate_sha512(path: Path) -> str:
-    digest = hashlib.sha512()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, default=Path(__file__).resolve().parents[1] / "distribution.json")
+    parser.add_argument("--output-dir", type=Path, default=Path("dist"))
+    args = parser.parse_args()
+    print(json.dumps(build(json.loads(args.config.read_text()), args.output_dir), indent=2))
 
 def validate_plugin_archive(plugin_zip_path: Path, required_prefix: str) -> None:
     with zipfile.ZipFile(plugin_zip_path) as suite_zip:
@@ -678,7 +183,9 @@ def safe_extract_all(zip_file: zipfile.ZipFile, destination: Path) -> None:
 
 
 def normalize_zip_entry_name(name: str) -> str:
-    normalized = name.replace("\\", "/").lstrip("/")
+    if name.startswith(("/", "\\")) or re.match(r"^[A-Za-z]:", name):
+        raise BuildError(f"Unsafe absolute ZIP entry: {name}")
+    normalized = name.replace("\\", "/")
     is_directory = normalized.endswith("/")
     parts = [part for part in normalized.split("/") if part not in ("", ".")]
     if not parts or any(part == ".." for part in parts):
@@ -797,5 +304,6 @@ def validate_output_archive(output_path: Path, required_prefixes: list[str]) -> 
         raise BuildError(f"Output archive '{output_path.name}' is missing hop/lib/.")
 
 
+
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

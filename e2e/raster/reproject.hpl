@@ -1,0 +1,93 @@
+<pipeline>
+  <info>
+    <name>Raster reproject elevation</name>
+    <pipeline_type>Normal</pipeline_type>
+    <parameters>
+      <parameter>
+        <name>INPUT_RASTER</name>
+        <default_value>https://files.geo.so.ch/ch.swisstopo.swissalti3d_2025.dtm/aktuell/ch.swisstopo.swissalti3d_2025.dtm.tif</default_value>
+        <description>Local GeoTIFF or public HTTP COG URL</description>
+      </parameter>
+      <parameter>
+        <name>OUTPUT_FILE</name>
+        <default_value />
+        <description>Local target GeoTIFF; directory must exist</description>
+      </parameter>
+      <parameter>
+        <name>TARGET_CRS</name>
+        <default_value>EPSG:2056</default_value>
+        <description>Empty keeps source CRS</description>
+      </parameter>
+      <parameter>
+        <name>PIXEL_SIZE_X</name>
+        <default_value>1</default_value>
+        <description>Positive pixel width in target CRS units</description>
+      </parameter>
+      <parameter>
+        <name>PIXEL_SIZE_Y</name>
+        <default_value>1</default_value>
+        <description>Positive pixel height in target CRS units</description>
+      </parameter>
+      <parameter>
+        <name>OUTPUT_NODATA</name>
+        <default_value />
+        <description>Optional sentinel; integer numeric output needs an inherited or explicit sentinel</description>
+      </parameter>
+    </parameters>
+  </info>
+  <order>
+    <hop>
+      <from>One operation</from>
+      <to>Reproject raster</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+  <transform>
+    <name>One operation</name>
+    <type>RowGenerator</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <limit>1</limit>
+    <never_ending>N</never_ending>
+    <fields>
+      <field>
+        <name>operation_id</name>
+        <type>Integer</type>
+        <nullif>1</nullif>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+    </fields>
+    <GUI>
+      <xloc>150</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </transform>
+  <transform>
+    <name>Reproject raster</name>
+    <type>SOGIS_RASTER_REPROJECT</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <source>${INPUT_RASTER}</source>
+    <targetCrs>${TARGET_CRS}</targetCrs>
+    <resolutionX>${PIXEL_SIZE_X}</resolutionX>
+    <resolutionY>${PIXEL_SIZE_Y}</resolutionY>
+    <extentMode>BOUNDING_BOX</extentMode>
+    <interpolation>BILINEAR</interpolation>
+    <outputType>AUTO</outputType>
+    <output>${OUTPUT_FILE}</output>
+    <outputNoData>${OUTPUT_NODATA}</outputNoData>
+    <prefix>raster_</prefix>
+    <overwrite>N</overwrite>
+    <minX>2607400</minX>
+    <minY>1228400</minY>
+    <maxX>2607500</maxX>
+    <maxY>1228500</maxY>
+    <GUI>
+      <xloc>450</xloc>
+      <yloc>150</yloc>
+    </GUI>
+  </transform>
+  <transform_error_handling />
+  <attributes />
+</pipeline>

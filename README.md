@@ -1,119 +1,85 @@
-# hop-distributions
+# Hop Geo Distribution
 
-Builds Apache Hop 2.18.1 client distributions with the `hop-gdal-plugin` gdal suite, the `hop-geotools-plugin` vector transforms, the shared `hop-geometry-type-plugin` runtime, the `hop-geometry-inspector-plugin`, the `hop-geoprocessing-plugin`, the `hop-geometry-calculator-plugin`, the `hop-ili2db-plugin`, and the `hop-ilivalidator-plugin` merged in.
+One platform-independent Apache Hop **2.19.0** client distribution, version **0.2.0**,
+with nine plugin projects installed:
 
-## What it does
+- Geometry Type (shared Geometry/JTS runtime)
+- Geometry Inspector
+- Geometry Calculator
+- Geoprocessing
+- Vector Raster (GeoTools; no GDAL)
+- INTERLIS
+- ili2db (action and transform)
+- ilivalidator (action and transform)
+- Python/GraalPy
 
-- Runs on every `push` to `main`
-- Runs on pull requests against `main` and builds the Windows target for validation
-- Can also be started manually with `workflow_dispatch`
-- Downloads `apache-hop-client-2.18.1.zip` from Apache and verifies its SHA-512 checksum
-- Resolves the latest public `edigonzales/hop-gdal-plugin` release
-- Resolves the latest public `edigonzales/hop-geotools-plugin` release
-- Resolves the latest public `edigonzales/hop-geometry-type-plugin` release
-- Resolves the latest public `edigonzales/hop-geometry-inspector-plugin` release
-- Resolves the latest public `edigonzales/hop-geoprocessing-plugin` release
-- Resolves the latest public `edigonzales/hop-geometry-calculator-plugin` release
-- Resolves the latest public `edigonzales/hop-ili2db-plugin` release
-- Resolves the latest public `edigonzales/hop-ilivalidator-plugin` release
-- Merges the matching `hop-gdal-suite-<version>-<target>.zip` into Hop for:
-  - `linux-x86_64`
-  - `linux-aarch64`
-  - `osx-x86_64`
-  - `osx-aarch64`
-  - `windows-x86_64`
-- Merges the platform-independent `hop-geotools-plugin-<version>.zip` into every generated distribution
-- Merges `hop-geometry-type-plugin-<version>.zip` exactly once as the shared Geometry/JTS runtime
-- Merges `hop-geometry-inspector-plugin-<version>.zip` into all generated distributions
-- Merges `hop-geoprocessing-plugin-<version>.zip` into all generated distributions
-- Merges `hop-geometry-calculator-plugin-<version>.zip` into all generated distributions
-- Merges `hop-action-ili2db-<version>.zip` and `hop-transform-ili2db-<version>.zip` into all generated distributions
-- Merges `hop-action-ilivalidator-<version>.zip` and `hop-transform-ilivalidator-<version>.zip` into all generated distributions
-- Validates the shared geometry/JTS runtime layout in the packaged ZIP, including that GeoTools does not carry another `jts-core` or Geometry Type runtime
-- Runs a Windows end-to-end pipeline `OGR Input -> Geometry Calculator -> Dummy` twice before a release can be published
-- Runs a Windows SQL/MM `CURVEPOLYGON` preview-string regression smoke against the packaged distribution
-- Publishes the resulting archives as a GitHub release
+## Build
 
-## Plugin artifact model
-
-`hop-distributions` consumes **installable plugin ZIPs from GitHub Releases**. Maven repositories are used by plugin projects for compile/build dependencies, but are not used here to assemble the Hop runtime.
-
-The Geometry Type runtime is intentionally present only once:
-
-```text
-hop/
-├── plugins/misc/hop-geometry-type/
-│   ├── hop-geometry-type-....jar
-│   └── lib/jts-core-....jar
-├── plugins/transforms/gdal-suite/
-├── plugins/transforms/geotools-vector/
-├── plugins/transforms/hop-geoprocessing/
-├── plugins/transforms/hop-geometry-calculator/
-└── plugins/misc/hop-geometry-inspector/
+```sh
+python3 -m unittest discover -s scripts -p 'test_*.py' -v
+python3 scripts/build_hop_distribution.py --output-dir dist
 ```
 
-The geospatial consumer plugins use that shared runtime instead of packaging their own JTS copy.
+`distribution.json` is the single source for distribution/Hop versions, the
+trusted Hop SHA-512, Maven snapshot base versions and installation roots.
+Each build resolves the latest unclassified ZIP in Maven snapshot metadata:
+Geometry Type `0.2.0-SNAPSHOT`, other plugins `0.1.0-SNAPSHOT`. Timestamped
+snapshot coordinates are recorded in the manifest, never pinned in the workflow.
+A new snapshot base version requires an explicit configuration update.
 
-## Release and output names
+The builder verifies Hop's SHA-512, rejects overlapping plugin files, and preserves
+launcher permissions. It produces:
 
-Published names deliberately contain only the Apache Hop version and the seven-character `hop-distributions` commit SHA. Plugin release identifiers are kept out of filenames and release titles so names stay short and stable as more plugins are added.
+- `apache-hop-client-2.19.0-geo-0.2.0.zip`
+- its `.sha256` checksum
+- `release-metadata.json`, including resolved input URLs, versions and hashes
 
-For a distribution commit such as `595728817ee158f06f54d52675a5600c4ac680e1`, the distribution id is `5957288`.
+## Shared Geometry runtime
 
-The GitHub release tag is:
+Install Geometry Type once under `plugins/misc/hop-geometry-type`, with JTS in its
+`lib` folder. Vector Raster must contain no Geometry/JTS copies and must declare
+both `../../misc/hop-geometry-type` and `../../misc/hop-geometry-type/lib` in
+`dependencies.xml`. Hop deliberately skips nested `lib` folders when searching a
+dependency directory. The shared classloader group is `sogeo-geometry`.
 
-```text
-hop-2.18.1-geo-5957288
+Old Vector Raster ZIPs are rejected, not rewritten. GDAL and Form Definition are
+not included. Upgrade by extracting the distribution into a clean directory;
+do not overlay it on an installation containing obsolete plugin JARs.
+
+## End-to-end verification
+
+With Java 21 or 25 selected through `JAVA_HOME`:
+
+```sh
+python3 scripts/run_e2e.py \
+  --archive dist/apache-hop-client-2.19.0-geo-0.2.0.zip \
+  --work-dir .ci/local-e2e
 ```
 
-The GitHub release title is:
+Use a fresh work directory. Logs, generated fixtures and results remain under its
+`reports` directory. Tests exercise the actual installed Hop launchers and plugin
+classloaders. They cover runtime identity under both load orders, plugin loading
+and Inspector initialization, geometry serialization/preview (SRID, Z/M, curves),
+raster clip/reprojection/statistics, vector export, calculator/geoprocessing,
+INTERLIS curve roundtrip, ili2db action/transform, positive and negative validator
+action/transform scenarios, and GraalPy including Geometry fields.
 
-```text
-Apache Hop 2.18.1 + Geo Plugins (5957288)
-```
+Fixture preparation uses a separate JVM with the required data libraries; that
+classpath is never used to run pipelines or runtime identity tests. Adapted test
+fixtures are attributed in `e2e/provenance.json`.
 
-Generated archives use this pattern:
+### Known validator behavior
 
-```text
-apache-hop-client-2.18.1-geo-5957288-linux-x86_64.zip
-apache-hop-client-2.18.1-geo-5957288-linux-aarch64.zip
-apache-hop-client-2.18.1-geo-5957288-osx-x86_64.zip
-apache-hop-client-2.18.1-geo-5957288-osx-aarch64.zip
-apache-hop-client-2.18.1-geo-5957288-windows-x86_64.zip
-```
+In the current ilivalidator snapshot, static validation without incoming rows emits
+an invalid result row but bypasses the `failPipelineOnInvalid` check. Use incoming
+file rows when a validation error must fail the pipeline. The negative E2E test
+exercises that row-driven mode. This distribution does not modify plugin behavior.
 
-The exact full release tag of every bundled plugin remains recorded in `release-metadata.json` and in the GitHub release body. The short distribution id therefore identifies the assembled distribution, while the metadata preserves full reproducibility and provenance.
+## CI and releases
 
-## Local usage
-
-```bash
-python3 scripts/build_hop_distribution.py \
-  --hop-version 2.18.1 \
-  --plugin-release latest \
-  --geotools-release latest \
-  --geometry-inspector-release latest \
-  --geoprocessing-release latest \
-  --geometry-calculator-release latest \
-  --ili2db-release latest \
-  --ilivalidator-release latest \
-  --output-dir dist
-```
-
-Use `--target` one or more times to build only specific classifiers. Each plugin release option also accepts an explicit GitHub release tag instead of `latest`, which makes a distribution build reproducible against a fixed set of plugin releases.
-
-The raw builder output is finalized by `scripts/finalize_release_names.py` after the shared Geometry Type runtime has been added. This final step records the Geometry Type release and normalizes all published names to the short distribution-id scheme above.
-
-## Requirements
-
-The workflow expects public, non-draft, non-prerelease GitHub releases in:
-
-- `edigonzales/hop-gdal-plugin`, containing all five `hop-gdal-suite-...zip` assets
-- `edigonzales/hop-geotools-plugin`, containing exactly one `hop-geotools-plugin-...zip` asset with `plugins/transforms/geotools-vector/`
-- `edigonzales/hop-geometry-type-plugin`, containing exactly one `hop-geometry-type-plugin-...zip` asset
-- `edigonzales/hop-geometry-inspector-plugin`, containing exactly one `hop-geometry-inspector-plugin-...zip` asset
-- `edigonzales/hop-geoprocessing-plugin`, containing exactly one `hop-geoprocessing-plugin-...zip` asset
-- `edigonzales/hop-geometry-calculator-plugin`, containing exactly one `hop-geometry-calculator-plugin-...zip` asset
-- `edigonzales/hop-ili2db-plugin`, containing exactly one `hop-action-ili2db-...zip` asset and one `hop-transform-ili2db-...zip` asset
-- `edigonzales/hop-ilivalidator-plugin`, containing exactly one `hop-action-ilivalidator-...zip` asset and one `hop-transform-ilivalidator-...zip` asset
-
-The GeoTools plugin itself is Java 17 compatible, but the complete bundled Hop distribution currently has the stricter runtime requirement from Apache Hop/GDAL. The Windows runtime smoke uses Java 23 because the GDAL plugin artifacts are compiled for Java 23. Apache Hop 2.18 itself requires Java 21 or newer.
+PRs, pushes to `main` and manual runs build one archive on Ubuntu. Only E2E jobs
+use the Java 21/25 × Linux/macOS/Windows matrix, all consuming that same archive.
+Release publication depends on the complete successful matrix and is disabled
+for PRs. GitHub release `v0.2.0` includes the ZIP, checksum and provenance manifest.
+Existing releases are left unchanged. Increment `distribution_version` for the
+next publication; rebuilding an existing version does not replace its release.

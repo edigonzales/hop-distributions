@@ -1,0 +1,53 @@
+<pipeline>
+  <info>
+    <name>Zonal statistics E2E assertion</name>
+    <pipeline_type>Normal</pipeline_type>
+    <parameters>
+      <parameter><name>INPUT_VECTOR</name><default_value /></parameter>
+      <parameter><name>INPUT_LAYER</name><default_value /></parameter>
+      <parameter><name>INPUT_RASTER</name><default_value /></parameter>
+      <parameter><name>GEOMETRY_CRS</name><default_value>EPSG:2056</default_value></parameter>
+      <parameter><name>NODATA</name><default_value>255</default_value></parameter>
+      <parameter><name>OUTPUT_FILE</name><default_value /></parameter>
+    </parameters>
+  </info>
+  <order>
+    <hop><from>Read vector</from><to>Zonal statistics</to><enabled>Y</enabled></hop>
+    <hop><from>Zonal statistics</from><to>Select output fields</to><enabled>Y</enabled></hop>
+    <hop><from>Select output fields</from><to>Text file output</to><enabled>Y</enabled></hop>
+  </order>
+  <transform>
+    <name>Read vector</name><type>SOGIS_VECTOR_READER</type><distribute>Y</distribute><copies>1</copies>
+    <fileName>${INPUT_VECTOR}</fileName><format>AUTO</format><geometryFieldName>geometry</geometryFieldName>
+    <layerName>${INPUT_LAYER}</layerName><timezone>UTC</timezone>
+    <GUI><xloc>150</xloc><yloc>150</yloc></GUI>
+  </transform>
+  <transform>
+    <name>Zonal statistics</name><type>SOGIS_RASTER_ZONAL_STATS</type><distribute>Y</distribute><copies>1</copies>
+    <source>${INPUT_RASTER}</source><sourceField>N</sourceField><geometryField>geometry</geometryField>
+    <explicitCrs>${GEOMETRY_CRS}</explicitCrs><band>1</band><noData>${NODATA}</noData>
+    <statistics>count mean min max</statistics><prefix>raster_</prefix>
+    <GUI><xloc>450</xloc><yloc>150</yloc></GUI>
+  </transform>
+  <transform>
+    <name>Select output fields</name><type>SelectValues</type><distribute>Y</distribute><copies>1</copies>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <remove><name>geometry</name></remove>
+    </fields>
+    <GUI><xloc>600</xloc><yloc>150</yloc></GUI>
+  </transform>
+  <transform>
+    <name>Text file output</name><type>TextFileOutput</type><distribute>Y</distribute><copies>1</copies>
+    <compression>None</compression><create_parent_folder>Y</create_parent_folder><separator>;</separator>
+    <enclosure>&quot;</enclosure><enclosure_forced>N</enclosure_forced><header>Y</header><footer>N</footer>
+    <format>UNIX</format><fileNameInField>N</fileNameInField><ignore_fields>N</ignore_fields>
+    <file><name>${OUTPUT_FILE}</name><do_not_open_new_file_init>Y</do_not_open_new_file_init>
+      <extension /><append>N</append><split>N</split><haspartno>N</haspartno><add_date>N</add_date>
+      <add_time>N</add_time><SpecifyFormat>N</SpecifyFormat><add_to_result_filenames>N</add_to_result_filenames>
+      <pad>N</pad><fast_dump>N</fast_dump>
+    </file>
+    <fields /><GUI><xloc>750</xloc><yloc>150</yloc></GUI>
+  </transform>
+  <transform_error_handling /><attributes />
+</pipeline>

@@ -1,0 +1,112 @@
+{
+  "RasterFixtures.java": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "scripts/DocumentationExamplesSmoke.java"
+  },
+  "RuntimeIdentityProbe.java": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "scripts/RuntimeIdentityProbe.java"
+  },
+  "raster/clip.hpl": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "examples/raster-clip/clip-cog.hpl"
+  },
+  "raster/reproject.hpl": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "examples/raster-reproject/elevation.hpl"
+  },
+  "raster/zonal.hpl": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "scripts/e2e/zonal-statistics-to-csv.hpl"
+  },
+  "raster/flatgeobuf.hpl": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "examples/cloud-output/vector-to-flatgeobuf.hpl"
+  },
+  "raster/parquet.hpl": {
+    "repository": "hop-vector-raster-plugin",
+    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "path": "examples/cloud-output/vector-to-parquet.hpl"
+  },
+  "geometry/calculator.hpl": {
+    "repository": "hop-geometry-calculator-plugin",
+    "commit": "289790df14023c6358f5af60662facab5ab539e4",
+    "path": "e2e/geometry-calculator.hpl"
+  },
+  "geometry/geoprocessing.hpl": {
+    "repository": "hop-geoprocessing-plugin",
+    "commit": "6f21f7fcbc342ec16432e10377623dc7b0ced861",
+    "path": "e2e/geoprocessing.hpl"
+  },
+  "python/e2e/graalpy.hpl": {
+    "repository": "hop-python-plugin",
+    "commit": "11b3e52c31c316e8294381e55099b69b08f52af4",
+    "path": "e2e/graalpy.hpl"
+  },
+  "python/scripts/run-e2e.py": {
+    "repository": "hop-python-plugin",
+    "commit": "11b3e52c31c316e8294381e55099b69b08f52af4",
+    "path": "scripts/run-e2e.py"
+  },
+  "interlis/roundtrip.hpl": {
+    "repository": "hop-interlis-plugin",
+    "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
+    "path": "e2e/pipelines/05-xtf-roundtrip.hpl"
+  },
+  "interlis/check.hpl": {
+    "repository": "hop-interlis-plugin",
+    "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
+    "path": "e2e/pipelines/06-roundtrip-check.hpl"
+  },
+  "ili2db/fixtures/valid.xtf": {
+    "repository": "hop-ili2db-plugin",
+    "commit": "319d4e545ea2f7261e8450c6dea26b492a207088",
+    "path": "e2e/fixtures/valid.xtf"
+  },
+  "ili2db/fixtures/TransferInputTest.ili": {
+    "repository": "hop-ili2db-plugin",
+    "commit": "319d4e545ea2f7261e8450c6dea26b492a207088",
+    "path": "e2e/fixtures/TransferInputTest.ili"
+  },
+  "validator/fixtures/valid.xtf": {
+    "repository": "hop-ilivalidator-plugin",
+    "commit": "a54d55b7fce3eebd180708d5f79e005654c0ac4d",
+    "path": "e2e/fixtures/valid.xtf"
+  },
+  "validator/fixtures/TransferInputTest.ili": {
+    "repository": "hop-ilivalidator-plugin",
+    "commit": "a54d55b7fce3eebd180708d5f79e005654c0ac4d",
+    "path": "e2e/fixtures/TransferInputTest.ili"
+  },
+  "interlis/input/HopIli_Geometry_V1_arcs.xtf": {
+    "repository": "hop-interlis-plugin",
+    "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
+    "path": "hop-interlis-core/src/test/resources/fixtures/data/2.3/HopIli_Geometry_V1_arcs.xtf"
+  },
+  "interlis/input/HopIli_Geometry_V1_valid.xtf": {
+    "repository": "hop-interlis-plugin",
+    "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
+    "path": "hop-interlis-core/src/test/resources/fixtures/data/2.3/HopIli_Geometry_V1_valid.xtf"
+  },
+  "ili2db_cases.py": {
+    "repository": "hop-ili2db-plugin",
+    "path": "scripts/run-e2e.py",
+    "commit": "319d4e545ea2f7261e8450c6dea26b492a207088"
+  },
+  "validator_cases.py": {
+    "repository": "hop-ilivalidator-plugin",
+    "path": "scripts/run-e2e.py",
+    "commit": "a54d55b7fce3eebd180708d5f79e005654c0ac4d"
+  },
+  "interlis/input/HopIli_Geometry_V1.ili": {
+    "repository": "hop-interlis-plugin",
+    "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
+    "path": "hop-interlis-core/src/test/resources/fixtures/models/2.4/HopIli_Geometry_V1.ili"
+  }
+}

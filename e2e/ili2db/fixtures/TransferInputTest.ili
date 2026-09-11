@@ -1,0 +1,8 @@
+INTERLIS 2.3;
+MODEL TransferInputTest (en) AT "https://example.org" VERSION "2026-09-10" =
+  TOPIC Data =
+    CLASS Item =
+      Name : MANDATORY TEXT*40;
+    END Item;
+  END Data;
+END TransferInputTest.

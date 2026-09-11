@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TRANSFER xmlns="http://www.interlis.ch/INTERLIS2.3">
+  <HEADERSECTION SENDER="hop-ilivalidator-test" VERSION="2.3">
+    <MODELS><MODEL NAME="TransferInputTest" VERSION="2026-09-10" URI="https://example.org"/></MODELS>
+  </HEADERSECTION>
+  <DATASECTION><TransferInputTest.Data BID="b1">
+    <TransferInputTest.Data.Item TID="i1"><Name>Example</Name></TransferInputTest.Data.Item>
+  </TransferInputTest.Data></DATASECTION>
+</TRANSFER>
