@@ -17,6 +17,9 @@ class GeoToolsArtifact:
     version: str
 
 
+GEOMETRY_RUNTIME_ROOT = "hop/plugins/misc/hop-geometry-type/"
+
+
 def _read_properties(raw: bytes) -> dict[str, str]:
     properties: dict[str, str] = {}
     for raw_line in raw.decode("iso-8859-1").splitlines():
@@ -72,6 +75,20 @@ def verify_archive(archive: Path, expected_version: str | None = None) -> str:
     artifacts = geotools_artifacts(archive)
     if not artifacts:
         raise RuntimeError(f"No org.geotools Maven artifacts found in {archive}")
+
+    outside_central_runtime = [
+        artifact
+        for artifact in artifacts
+        if not artifact.distribution_path.startswith(GEOMETRY_RUNTIME_ROOT)
+    ]
+    if outside_central_runtime:
+        details = "\n".join(
+            f"  {artifact.distribution_path} ({artifact.artifact_id} {artifact.version})"
+            for artifact in outside_central_runtime
+        )
+        raise RuntimeError(
+            "GeoTools artifacts outside the central Geometry Type runtime:\n" + details
+        )
 
     versions = sorted({artifact.version for artifact in artifacts})
     if len(versions) != 1:

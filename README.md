@@ -41,11 +41,12 @@ launcher permissions. It produces:
 
 ## Shared Geometry runtime
 
-Install Geometry Type once under `plugins/misc/hop-geometry-type`, with JTS in its
-`lib` folder. Vector Raster must contain no Geometry/JTS copies and must declare
-both `../../misc/hop-geometry-type` and `../../misc/hop-geometry-type/lib` in
-`dependencies.xml`. Hop deliberately skips nested `lib` folders when searching a
-dependency directory. The shared classloader group is `sogeo-geometry`.
+Install Geometry Type once under `plugins/misc/hop-geometry-type`; it owns the shared
+Geometry/JTS, GeoTools, Imagen, ImageIO-Ext and UOM runtime. Install Raster Type under
+`plugins/misc/hop-raster-type`; it owns the native raster model. Vector Raster contains
+only its GeoTools raster backend and declares `../../misc/hop-raster-type` plus
+`../../misc/hop-raster-type/lib` in `dependencies.xml`. The shared classloader group is
+`sogeo-geometry`.
 
 Old Vector Raster ZIPs are rejected, not rewritten. GDAL and Form Definition are
 not included. Upgrade by extracting the distribution into a clean directory;
