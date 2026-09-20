@@ -24,29 +24,45 @@ def _distribution(path: Path, entries: list[tuple[str, bytes]]) -> None:
 
 
 class GeoToolsVersionGuardTest(unittest.TestCase):
-    def test_accepts_same_geotools_version_from_multiple_plugins(self):
+    def test_accepts_geotools_only_in_central_geometry_runtime(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             archive = Path(temporary_directory) / "hop.zip"
             _distribution(
                 archive,
                 [
                     (
-                        "hop/plugins/misc/hop-geometry-inspector/lib/gt-main.jar",
-                        _jar("org.geotools", "gt-main", "35.0"),
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-main.jar",
+                        _jar("org.geotools", "gt-main", "35.1"),
                     ),
                     (
-                        "hop/plugins/transforms/geotools-vector/lib/gt-main-35.0.jar",
-                        _jar("org.geotools", "gt-main", "35.0"),
-                    ),
-                    (
-                        "hop/plugins/transforms/geotools-vector/lib/gt-referencing-35.0.jar",
-                        _jar("org.geotools", "gt-referencing", "35.0"),
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-referencing.jar",
+                        _jar("org.geotools", "gt-referencing", "35.1"),
                     ),
                 ],
             )
 
-            self.assertEqual("35.0", verify_archive(archive, "35.0"))
-            self.assertEqual(3, len(geotools_artifacts(archive)))
+            self.assertEqual("35.1", verify_archive(archive, "35.1"))
+            self.assertEqual(2, len(geotools_artifacts(archive)))
+
+    def test_rejects_geotools_outside_central_geometry_runtime(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            archive = Path(temporary_directory) / "hop.zip"
+            _distribution(
+                archive,
+                [
+                    (
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-main.jar",
+                        _jar("org.geotools", "gt-main", "35.1"),
+                    ),
+                    (
+                        "hop/plugins/transforms/vector-raster/lib/gt-render.jar",
+                        _jar("org.geotools", "gt-render", "35.1"),
+                    ),
+                ],
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "outside the central Geometry Type"):
+                verify_archive(archive, "35.1")
 
     def test_rejects_mixed_inspector_and_vector_geotools_versions(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -55,11 +71,11 @@ class GeoToolsVersionGuardTest(unittest.TestCase):
                 archive,
                 [
                     (
-                        "hop/plugins/misc/hop-geometry-inspector/lib/gt-main.jar",
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-main-31.3.jar",
                         _jar("org.geotools", "gt-main", "31.3"),
                     ),
                     (
-                        "hop/plugins/transforms/geotools-vector/lib/gt-main-35.0.jar",
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-main-35.0.jar",
                         _jar("org.geotools", "gt-main", "35.0"),
                     ),
                 ],
@@ -75,7 +91,7 @@ class GeoToolsVersionGuardTest(unittest.TestCase):
                 archive,
                 [
                     (
-                        "hop/plugins/misc/hop-geometry-inspector/lib/gt-main.jar",
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-main.jar",
                         _jar("org.geotools", "gt-main", "34.0"),
                     )
                 ],
@@ -91,11 +107,11 @@ class GeoToolsVersionGuardTest(unittest.TestCase):
                 archive,
                 [
                     (
-                        "hop/plugins/misc/hop-geometry-inspector/lib/gt-main.jar",
+                        "hop/plugins/misc/hop-geometry-type/lib/gt-main.jar",
                         _jar("org.geotools", "gt-main", "35.0"),
                     ),
                     (
-                        "hop/plugins/misc/hop-geometry-inspector/lib/something.jar",
+                        "hop/plugins/misc/hop-geometry-type/lib/something.jar",
                         _jar("example", "something", "99"),
                     ),
                 ],

@@ -1,4 +1,5 @@
 import json
+import io
 import os
 from pathlib import Path
 import tempfile
@@ -53,7 +54,11 @@ class DistributionTests(unittest.TestCase):
         return {
             'hop/plugins/misc/hop-geometry-type/hop-geometry-type-0.2.jar': b'geometry',
             'hop/plugins/misc/hop-geometry-type/lib/jts-core-1.20.jar': b'jts',
-            'hop/plugins/transforms/vector-raster/dependencies.xml': b'<dependencies><folder>../../misc/hop-geometry-type</folder><folder>../../misc/hop-geometry-type/lib</folder></dependencies>',
+            'hop/plugins/misc/hop-geometry-type/lib/gt-main-35.1.jar': b'geotools',
+            'hop/plugins/misc/hop-geometry-type/lib/imagen-core-0.9.2.jar': b'imagen',
+            'hop/plugins/misc/hop-raster-type/hop-raster-type-0.1.jar': b'raster-type',
+            'hop/plugins/misc/hop-raster-type/lib/hop-raster-core-0.1.jar': b'raster-core',
+            'hop/plugins/transforms/vector-raster/dependencies.xml': b'<dependencies><folder>../../misc/hop-raster-type</folder><folder>../../misc/hop-raster-type/lib</folder></dependencies>',
         }
 
     def test_runtime_contract(self):
@@ -64,16 +69,52 @@ class DistributionTests(unittest.TestCase):
             builder.validate_runtime(archive)
             entries['hop/plugins/transforms/vector-raster/lib/jts-core-1.20.jar'] = b'copy'
             self.make_archive(archive, entries)
-            with self.assertRaisesRegex(builder.BuildError, 'Obsolete'):
+            with self.assertRaisesRegex(builder.BuildError, 'outside central Geometry Type'):
                 builder.validate_runtime(archive)
 
-    def test_missing_lib_reference_fails(self):
+    def test_missing_raster_type_lib_reference_fails(self):
         with tempfile.TemporaryDirectory() as temp:
             archive = Path(temp)/'runtime.zip'
             entries = self.runtime_entries()
-            entries['hop/plugins/transforms/vector-raster/dependencies.xml'] = b'<dependencies><folder>../../misc/hop-geometry-type</folder></dependencies>'
+            entries['hop/plugins/transforms/vector-raster/dependencies.xml'] = b'<dependencies><folder>../../misc/hop-raster-type</folder></dependencies>'
             self.make_archive(archive, entries)
-            with self.assertRaisesRegex(builder.BuildError, 'both central'):
+            with self.assertRaisesRegex(builder.BuildError, 'exactly the central Raster Type'):
+                builder.validate_runtime(archive)
+
+    def test_direct_geometry_dependency_reference_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp)/'runtime.zip'
+            entries = self.runtime_entries()
+            entries['hop/plugins/transforms/vector-raster/dependencies.xml'] = b'<dependencies><folder>../../misc/hop-raster-type</folder><folder>../../misc/hop-raster-type/lib</folder><folder>../../misc/hop-geometry-type</folder></dependencies>'
+            self.make_archive(archive, entries)
+            with self.assertRaisesRegex(builder.BuildError, 'exactly the central Raster Type'):
+                builder.validate_runtime(archive)
+
+    def test_shared_runtime_outside_its_owner_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp)/'runtime.zip'
+            entries = self.runtime_entries()
+            entries['hop/plugins/transforms/vector-raster/lib/gt-main-35.1.jar'] = b'copy'
+            self.make_archive(archive, entries)
+            with self.assertRaisesRegex(builder.BuildError, 'outside central Geometry Type'):
+                builder.validate_runtime(archive)
+
+            entries = self.runtime_entries()
+            entries['hop/plugins/transforms/vector-raster/lib/hop-raster-core-0.1.jar'] = b'copy'
+            self.make_archive(archive, entries)
+            with self.assertRaisesRegex(builder.BuildError, 'outside central Raster Type'):
+                builder.validate_runtime(archive)
+
+    def test_imagen_registry_outside_geometry_type_fails(self):
+        with tempfile.TemporaryDirectory() as temp:
+            archive = Path(temp)/'runtime.zip'
+            entries = self.runtime_entries()
+            nested = io.BytesIO()
+            with zipfile.ZipFile(nested, 'w') as jar:
+                jar.writestr('META-INF/registryFile.imagen', 'descriptor fixture')
+            entries['hop/plugins/transforms/vector-raster/lib/affine-0.9.2.jar'] = nested.getvalue()
+            self.make_archive(archive, entries)
+            with self.assertRaisesRegex(builder.BuildError, 'Imagen registry outside'):
                 builder.validate_runtime(archive)
 
     def test_merge_preserves_launchers_and_rejects_overlapping_plugins(self):
@@ -103,6 +144,7 @@ class DistributionTests(unittest.TestCase):
             config={'distribution_version':'0.2.0','hop_version':'2.19.0','hop_sha512':builder.digest(hop,'sha512'),
                     'snapshot_repository':'https://example.test','plugins':[
                         {'artifact':'geometry','version':'0.2.0-SNAPSHOT','root':'plugins/misc/hop-geometry-type'},
+                        {'artifact':'raster','version':'0.1.0-SNAPSHOT','root':'plugins/misc/hop-raster-type'},
                         {'artifact':'vector','version':'0.1.0-SNAPSHOT','root':'plugins/transforms/vector-raster'}]}
             def download(url,path):
                 if url.endswith('maven-metadata.xml'):
@@ -110,7 +152,10 @@ class DistributionTests(unittest.TestCase):
                 elif 'apache-hop-client' in url:
                     Path(path).write_bytes(hop.read_bytes())
                 else:
-                    plugin_root=config['plugins'][0 if '/geometry/' in url else 1]['root']
+                    plugin_root=next(
+                        plugin['root'] for plugin in config['plugins']
+                        if f"/{plugin['artifact']}/" in url
+                    )
                     self.make_archive(path,{k.removeprefix('hop/'):v for k,v in entries.items() if k.startswith('hop/'+plugin_root)})
             with patch.object(builder,'download',download):
                 metadata=builder.build(config,root/'dist')
@@ -121,7 +166,7 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(metadata['prerelease'])
             self.assertEqual(metadata['release_tag'],'v0.2.0')
             self.assertEqual(metadata['artifacts'][0]['sha256'],builder.digest(artifact))
-            self.assertEqual(len(metadata['plugins']),2)
+            self.assertEqual(len(metadata['plugins']),3)
             self.assertIn('20260911',metadata['plugins'][0]['resolved_version'])
             self.assertEqual(len(list((root/'dist').glob('*.zip'))),1)
 

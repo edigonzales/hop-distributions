@@ -5,6 +5,7 @@ import argparse
 from contextlib import ExitStack
 from dataclasses import dataclass
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -68,23 +69,64 @@ def validate_runtime(archive, prefix="hop/"):
     with zipfile.ZipFile(archive) as z:
         names = z.namelist()
         central = prefix + "plugins/misc/hop-geometry-type/"
+        raster_type = prefix + "plugins/misc/hop-raster-type/"
+        inspector = prefix + "plugins/misc/hop-geometry-inspector/"
         vector = prefix + "plugins/transforms/vector-raster/"
-        for stem, folder in [("hop-geometry-type-", central), ("jts-core-", central + "lib/")]:
+        shared_runtime_consumers = (inspector, raster_type, vector)
+        required = [
+            ("hop-geometry-type-", central),
+            ("jts-core-", central + "lib/"),
+            ("gt-main-", central + "lib/"),
+            ("imagen-core-", central + "lib/"),
+            ("hop-raster-type-", raster_type),
+            ("hop-raster-core-", raster_type + "lib/"),
+        ]
+        for stem, folder in required:
             matches = [n for n in names if n.startswith(central) and Path(n).name.startswith(stem) and n.endswith(".jar")]
+            if stem.startswith("hop-raster-"):
+                matches = [n for n in names if n.startswith(raster_type) and Path(n).name.startswith(stem) and n.endswith(".jar")]
             if len(matches) != 1 or not matches[0].startswith(folder):
                 raise BuildError(f"Expected one central {stem} runtime under {folder}: {matches}")
+
+        shared_geometry_stems = (
+            "hop-geometry-type-", "jts-core-", "gt-", "imagen-", "imageio-ext-",
+            "indriya-", "unit-api-", "systems-common-", "uom-lib-", "si-quantity-",
+            "si-units-", "net.opengis.", "org.w3.xlink-",
+        )
         for name in names:
-            if name.startswith(vector) and Path(name).name.startswith(("hop-geometry-type-", "jts-core-")) and name.endswith(".jar"):
-                raise BuildError(f"Obsolete Vector Raster snapshot bundles runtime: {name}")
+            if not name.endswith(".jar") or "/plugins/" not in name:
+                continue
+            filename = Path(name).name.lower()
+            if (
+                filename.startswith(shared_geometry_stems)
+                and name.startswith(shared_runtime_consumers)
+                and not name.startswith(central)
+            ):
+                raise BuildError(f"Shared Geometry runtime outside central Geometry Type: {name}")
+            if filename.startswith(("hop-raster-type-", "hop-raster-core-")) and not name.startswith(raster_type):
+                raise BuildError(f"Shared Raster runtime outside central Raster Type: {name}")
             if name.startswith(central) and Path(name).name.startswith(("postgresql-", "postgis-jdbc-")):
                 raise BuildError(f"Database driver in shared Geometry runtime: {name}")
+            if name.startswith(shared_runtime_consumers):
+                try:
+                    with zipfile.ZipFile(io.BytesIO(z.read(name))) as jar:
+                        if "META-INF/registryFile.imagen" in jar.namelist():
+                            raise BuildError(
+                                f"Imagen registry outside central Geometry Type: {name}"
+                            )
+                except zipfile.BadZipFile:
+                    pass
         try:
             deps = ET.fromstring(z.read(vector + "dependencies.xml"))
         except (KeyError, ET.ParseError) as error:
             raise BuildError("Vector Raster requires its corrected dependencies.xml") from error
         folders = {n.text for n in deps.findall("folder")}
-        if not {"../../misc/hop-geometry-type", "../../misc/hop-geometry-type/lib"} <= folders:
-            raise BuildError("Vector Raster must reference both central Geometry folders")
+        expected = {"../../misc/hop-raster-type", "../../misc/hop-raster-type/lib"}
+        if folders != expected:
+            raise BuildError(
+                "Vector Raster must reference exactly the central Raster Type folders: "
+                f"expected {sorted(expected)}, found {sorted(folders)}"
+            )
 
 def build(config, output):
     output.mkdir(parents=True, exist_ok=True)
