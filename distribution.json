@@ -10,6 +10,11 @@
       "version": "0.2.0-SNAPSHOT"
     },
     {
+      "artifact": "hop-raster-type-plugin",
+      "root": "plugins/misc/hop-raster-type",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
       "artifact": "hop-geometry-inspector-plugin",
       "root": "plugins/misc/hop-geometry-inspector",
       "version": "0.1.0-SNAPSHOT"

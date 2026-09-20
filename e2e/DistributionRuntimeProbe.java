@@ -12,8 +12,9 @@ public class DistributionRuntimeProbe {
   public static void main(String[] args) throws Exception {
     HopEnvironment.init();
     var registry = PluginRegistry.getInstance();
-    String[] transforms = {"SOGIS_VECTOR_READER", "SOGIS_VECTOR_WRITER", "SOGIS_RASTER_CLIP",
-      "SOGIS_RASTER_REPROJECT", "SOGIS_RASTER_ZONAL_STATS", "GEOMETRY_CALCULATOR_TRANSFORM",
+    String[] transforms = {"SOGIS_VECTOR_READER", "SOGIS_VECTOR_WRITER", "SOGIS_RASTER_READER",
+      "SOGIS_RASTER_VALUE_CLIP", "SOGIS_RASTER_VALUE_REPROJECT",
+      "SOGIS_RASTER_VALUE_ZONAL_STATS", "SOGIS_RASTER_WRITER", "GEOMETRY_CALCULATOR_TRANSFORM",
       "INTERLIS_INPUT", "INTERLIS_OUTPUT", "INTERLIS_ILI2DB_TRANSFORM",
       "INTERLIS_ILIVALIDATOR_TRANSFORM", "GraalPyTransform"};
     for (String id : transforms) {

@@ -5,7 +5,7 @@ public class RuntimeIdentityProbe {
  public static void main(String[] args) throws Exception {
   HopEnvironment.init();
   PluginRegistry r=PluginRegistry.getInstance();
-  IPlugin raster=r.findPluginWithId(TransformPluginType.class,"SOGIS_RASTER_CLIP");
+  IPlugin raster=r.findPluginWithId(TransformPluginType.class,"SOGIS_RASTER_VALUE_CLIP");
   IPlugin geometry=r.findPluginWithId(ValueMetaPluginType.class,"43663879");
   ClassLoader first=r.getClassLoader(args[0].equals("raster-first")?raster:geometry);
   ClassLoader a=r.getClassLoader(raster), b=r.getClassLoader(geometry);
@@ -18,5 +18,12 @@ public class RuntimeIdentityProbe {
    if(!origin.startsWith(central)) throw new AssertionError("Runtime outside central Geometry plugin: "+origin);
    System.out.println("IDENTITY OK "+args[0]+" "+n+" "+ca.getProtectionDomain().getCodeSource().getLocation());
   }
+  for(String n:new String[]{"ch.so.agi.hop.raster.RasterDataset","ch.so.agi.hop.raster.type.ValueMetaRaster"}) {
+   Class<?> ca=a.loadClass(n), cb=b.loadClass(n);
+   if(ca!=cb) throw new AssertionError("Different raster class identity: "+n);
+   var origin=java.nio.file.Path.of(ca.getProtectionDomain().getCodeSource().getLocation().toURI()).toRealPath();
+   if(!origin.startsWith(java.nio.file.Path.of("plugins/misc/hop-raster-type").toRealPath()))throw new AssertionError("Raster class outside central type plugin: "+origin);
+  }
+
  }
 }

@@ -48,7 +48,22 @@
   <order>
     <hop>
       <from>One operation</from>
+      <to>Clip raster source</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Clip raster source</from>
       <to>Clip raster</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Clip raster</from>
+      <to>Clip raster write</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Clip raster write</from>
+      <to>Clip raster remove raster value</to>
       <enabled>Y</enabled>
     </hop>
   </order>
@@ -69,17 +84,16 @@
       </field>
     </fields>
     <GUI>
-      <xloc>150</xloc>
-      <yloc>150</yloc>
+      <xloc>120</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
     </GUI>
   </transform>
   <transform>
     <name>Clip raster</name>
-    <type>SOGIS_RASTER_CLIP</type>
+    <type>SOGIS_RASTER_VALUE_CLIP</type>
     <copies>1</copies>
     <distribute>Y</distribute>
-    <source>${INPUT_RASTER}</source>
-    <sourceField>N</sourceField>
     <clipMethod>BOUNDING_BOX</clipMethod>
     <explicitCrs>${BBOX_CRS}</explicitCrs>
     <minX>${MIN_X}</minX>
@@ -89,15 +103,67 @@
     <bboxFields>N</bboxFields>
     <band>1</band>
     <noData>${NODATA}</noData>
+    <prefix>raster_</prefix>
+    <GUI>
+      <xloc>560</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <bands>1</bands>
+  </transform>
+  <transform_error_handling />
+  <attributes />
+  <transform>
+    <name>Clip raster source</name>
+    <type>SOGIS_RASTER_READER</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <GUI>
+      <xloc>340</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
+    <source>${INPUT_RASTER}</source>
+    <sourceField>N</sourceField>
+  </transform>
+  <transform>
+    <name>Clip raster write</name>
+    <type>SOGIS_RASTER_WRITER</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <GUI>
+      <xloc>780</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
     <output>${OUTPUT_FILE}</output>
     <outputField>N</outputField>
     <overwrite>N</overwrite>
     <prefix>raster_</prefix>
-    <GUI>
-      <xloc>450</xloc>
-      <yloc>150</yloc>
-    </GUI>
   </transform>
-  <transform_error_handling />
-  <attributes />
+  <transform>
+    <name>Clip raster remove raster value</name>
+    <type>SelectValues</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <GUI>
+      <xloc>1000</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <remove>
+        <name>__raster_value_2</name>
+      </remove>
+    </fields>
+  </transform>
 </pipeline>

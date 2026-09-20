@@ -6,22 +6,22 @@
   },
   "RuntimeIdentityProbe.java": {
     "repository": "hop-vector-raster-plugin",
-    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "commit": "6532381341bd28c92c49da5f86213ba0b7f8ed99",
     "path": "scripts/RuntimeIdentityProbe.java"
   },
   "raster/clip.hpl": {
     "repository": "hop-vector-raster-plugin",
-    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "commit": "6532381341bd28c92c49da5f86213ba0b7f8ed99",
     "path": "examples/raster-clip/clip-cog.hpl"
   },
   "raster/reproject.hpl": {
     "repository": "hop-vector-raster-plugin",
-    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "commit": "6532381341bd28c92c49da5f86213ba0b7f8ed99",
     "path": "examples/raster-reproject/elevation.hpl"
   },
   "raster/zonal.hpl": {
     "repository": "hop-vector-raster-plugin",
-    "commit": "8bb761e5b22f78c4efdf291b8ed61add4411f352",
+    "commit": "6532381341bd28c92c49da5f86213ba0b7f8ed99",
     "path": "scripts/e2e/zonal-statistics-to-csv.hpl"
   },
   "raster/flatgeobuf.hpl": {

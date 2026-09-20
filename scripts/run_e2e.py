@@ -96,7 +96,7 @@ def main():
     run(fixture_cmd+['prepare'])
     pipeline(FIXTURES/'raster/clip.hpl',dict(INPUT_RASTER=data/'input.tif',OUTPUT_FILE=data/'clip.tif',BBOX_CRS='EPSG:2056',MIN_X=2600001,MIN_Y=1200001,MAX_X=2600003,MAX_Y=1200003,NODATA=255))
     tree=ET.parse(FIXTURES/'raster/reproject.hpl')
-    raster=next(t for t in tree.getroot().findall('transform') if t.findtext('type')=='SOGIS_RASTER_REPROJECT')
+    raster=next(t for t in tree.getroot().findall('transform') if t.findtext('type')=='SOGIS_RASTER_VALUE_REPROJECT')
     raster.find('extentMode').text='AUTO'
     definition=reports/'reproject.hpl';tree.write(definition)
     pipeline(definition,dict(INPUT_RASTER=data/'input.tif',OUTPUT_FILE=data/'reproject.tif',TARGET_CRS='EPSG:21781',PIXEL_SIZE_X=1,PIXEL_SIZE_Y=1,OUTPUT_NODATA=255))

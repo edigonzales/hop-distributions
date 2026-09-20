@@ -1,9 +1,10 @@
 # Hop Geo Distribution
 
 One platform-independent Apache Hop **2.19.0** client distribution, base version **0.2.1-SNAPSHOT**,
-with nine plugin projects installed:
+with ten plugin projects installed:
 
 - Geometry Type (shared Geometry/JTS runtime)
+- Raster Type
 - Geometry Inspector
 - Geometry Calculator
 - Geoprocessing

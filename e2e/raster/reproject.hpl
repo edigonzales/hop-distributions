@@ -38,7 +38,22 @@
   <order>
     <hop>
       <from>One operation</from>
+      <to>Reproject raster source</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Reproject raster source</from>
       <to>Reproject raster</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Reproject raster</from>
+      <to>Reproject raster write</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Reproject raster write</from>
+      <to>Reproject raster remove raster value</to>
       <enabled>Y</enabled>
     </hop>
   </order>
@@ -59,35 +74,85 @@
       </field>
     </fields>
     <GUI>
-      <xloc>150</xloc>
-      <yloc>150</yloc>
+      <xloc>120</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
     </GUI>
   </transform>
   <transform>
     <name>Reproject raster</name>
-    <type>SOGIS_RASTER_REPROJECT</type>
+    <type>SOGIS_RASTER_VALUE_REPROJECT</type>
     <copies>1</copies>
     <distribute>Y</distribute>
-    <source>${INPUT_RASTER}</source>
     <targetCrs>${TARGET_CRS}</targetCrs>
     <resolutionX>${PIXEL_SIZE_X}</resolutionX>
     <resolutionY>${PIXEL_SIZE_Y}</resolutionY>
     <extentMode>BOUNDING_BOX</extentMode>
     <interpolation>BILINEAR</interpolation>
     <outputType>AUTO</outputType>
-    <output>${OUTPUT_FILE}</output>
     <outputNoData>${OUTPUT_NODATA}</outputNoData>
     <prefix>raster_</prefix>
-    <overwrite>N</overwrite>
     <minX>2607400</minX>
     <minY>1228400</minY>
     <maxX>2607500</maxX>
     <maxY>1228500</maxY>
     <GUI>
-      <xloc>450</xloc>
-      <yloc>150</yloc>
+      <xloc>560</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
     </GUI>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
   </transform>
   <transform_error_handling />
   <attributes />
+  <transform>
+    <name>Reproject raster source</name>
+    <type>SOGIS_RASTER_READER</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <GUI>
+      <xloc>340</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
+    <source>${INPUT_RASTER}</source>
+  </transform>
+  <transform>
+    <name>Reproject raster write</name>
+    <type>SOGIS_RASTER_WRITER</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <GUI>
+      <xloc>780</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
+    <output>${OUTPUT_FILE}</output>
+    <overwrite>N</overwrite>
+    <prefix>raster_</prefix>
+  </transform>
+  <transform>
+    <name>Reproject raster remove raster value</name>
+    <type>SelectValues</type>
+    <copies>1</copies>
+    <distribute>Y</distribute>
+    <version>1</version>
+    <rasterField>__raster_value_2</rasterField>
+    <GUI>
+      <xloc>1000</xloc>
+      <yloc>120</yloc>
+      <draw>Y</draw>
+    </GUI>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <remove>
+        <name>__raster_value_2</name>
+      </remove>
+    </fields>
+  </transform>
 </pipeline>
