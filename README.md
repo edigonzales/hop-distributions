@@ -1,12 +1,13 @@
 # Hop Geo Distribution
 
 One platform-independent Apache Hop **2.19.0** client distribution, base version **0.2.1-SNAPSHOT**,
-with ten plugin projects installed:
+with eleven plugin projects installed:
 
 - Geometry Type (shared Geometry/JTS runtime)
 - Raster Type
 - Geometry Inspector
 - Geometry Calculator
+- JSON Object Builder
 - Geoprocessing
 - Vector Raster (GeoTools; no GDAL)
 - INTERLIS
@@ -68,7 +69,8 @@ classloaders. They cover runtime identity under both load orders, plugin loading
 and Inspector initialization, geometry serialization/preview (SRID, Z/M, curves),
 raster clip/reprojection/statistics, vector export, calculator/geoprocessing,
 INTERLIS curve roundtrip, ili2db action/transform, positive and negative validator
-action/transform scenarios, and GraalPy including Geometry fields.
+action/transform scenarios, JSON Object Builder and JSON Array Builder example pipelines, and
+GraalPy including Geometry fields.
 
 Fixture preparation uses a separate JVM with the required data libraries; that
 classpath is never used to run pipelines or runtime identity tests. Adapted test

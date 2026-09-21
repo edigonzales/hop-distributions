@@ -141,6 +141,15 @@ def main():
     with (geo/'interop.csv').open(newline='') as f:interoperability=list(csv.DictReader(f,delimiter=';'))
     assert len(interoperability)==1 and abs(float(interoperability[0]['polygon_area'])-12)<1e-9,interoperability
     assert '2600002 1200001.5' in interoperability[0]['centroid'],interoperability
+    json_output=reports/'json';json_output.mkdir()
+    for case,output_name,expected_name in [
+        ('stac-item','stac-item.json','stac-item.json'),
+        ('links-array','links.json','links.json'),
+    ]:
+        pipeline(FIXTURES/f'json/{case}.hpl',dict(OUTPUT_DIR=json_output))
+        actual=json.loads((json_output/output_name).read_text(encoding='utf-8'))
+        expected=json.loads((FIXTURES/'json/expected'/expected_name).read_text(encoding='utf-8'))
+        assert actual==expected, f'JSON builder example {case} differs from its expected document'
     interlis=reports/'interlis';interlis.mkdir()
     env['E2E_INPUT_DIR']=str(FIXTURES/'interlis/input');env['E2E_OUTPUT_DIR']=str(interlis)
     for case in ['roundtrip','check']:pipeline(FIXTURES/f'interlis/{case}.hpl',dict(E2E_INPUT_DIR=FIXTURES/'interlis/input',E2E_OUTPUT_DIR=interlis))

@@ -39,6 +39,26 @@
     "commit": "289790df14023c6358f5af60662facab5ab539e4",
     "path": "e2e/geometry-calculator.hpl"
   },
+  "json/stac-item.hpl": {
+    "repository": "hop-json-object-builder-plugin",
+    "commit": "e14ff693fbc1c29c7d04473797ed0f26c87a508f",
+    "path": "examples/stac-item/stac-item.hpl"
+  },
+  "json/links-array.hpl": {
+    "repository": "hop-json-object-builder-plugin",
+    "commit": "e14ff693fbc1c29c7d04473797ed0f26c87a508f",
+    "path": "examples/links-array/links-array.hpl"
+  },
+  "json/expected/stac-item.json": {
+    "repository": "hop-json-object-builder-plugin",
+    "commit": "e14ff693fbc1c29c7d04473797ed0f26c87a508f",
+    "path": "examples/stac-item/expected/stac-item.json"
+  },
+  "json/expected/links.json": {
+    "repository": "hop-json-object-builder-plugin",
+    "commit": "e14ff693fbc1c29c7d04473797ed0f26c87a508f",
+    "path": "examples/links-array/expected/links.json"
+  },
   "geometry/geoprocessing.hpl": {
     "repository": "hop-geoprocessing-plugin",
     "commit": "6f21f7fcbc342ec16432e10377623dc7b0ced861",

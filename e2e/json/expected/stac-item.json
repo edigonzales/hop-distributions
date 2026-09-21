@@ -1,0 +1,37 @@
+{
+  "stac_version": "1.1.0",
+  "type": "Feature",
+  "id": "ch.so.agi.gemeindegrenzen-2026-09-01",
+  "collection": "ch.so.agi.gemeindegrenzen",
+  "bbox": [7.34, 47.07, 8.03, 47.5],
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [7.34, 47.07],
+        [8.03, 47.07],
+        [8.03, 47.5],
+        [7.34, 47.5],
+        [7.34, 47.07]
+      ]
+    ]
+  },
+  "properties": {
+    "datetime": "2026-09-01T00:00:00Z",
+    "title": "Gemeindegrenzen Kanton Solothurn"
+  },
+  "assets": {
+    "geoparquet": {
+      "href": "https://files.geo.so.ch/ch.so.agi.gemeindegrenzen/2026-09-01/gemeindegrenzen.parquet",
+      "type": "application/vnd.apache.parquet",
+      "title": "GeoParquet",
+      "roles": ["data"]
+    },
+    "interlis": {
+      "href": "https://files.geo.so.ch/ch.so.agi.gemeindegrenzen/2026-09-01/gemeindegrenzen.xtf",
+      "type": "application/xml",
+      "title": "INTERLIS XTF",
+      "roles": ["data"]
+    }
+  }
+}

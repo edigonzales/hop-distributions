@@ -1,0 +1,16 @@
+[
+  {
+    "rel": "collection",
+    "href": "https://data.example.ch/stac/collections/gemeindegrenzen",
+    "type": "application/json"
+  },
+  {
+    "rel": "root",
+    "href": "https://data.example.ch/stac/"
+  },
+  {
+    "rel": "self",
+    "href": "https://data.example.ch/stac/collections/gemeindegrenzen/items/2026-09-01",
+    "type": "application/json"
+  }
+]

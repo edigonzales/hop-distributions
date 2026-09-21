@@ -28,6 +28,23 @@ class DistributionTests(unittest.TestCase):
             },
         )
 
+    def test_distribution_config_includes_json_object_builder(self):
+        config_path = Path(__file__).resolve().parents[1] / 'distribution.json'
+        config = json.loads(config_path.read_text())
+        plugins = config['plugins']
+        geometry_index = next(
+            index for index, plugin in enumerate(plugins)
+            if plugin['artifact'] == 'hop-geometry-calculator-plugin'
+        )
+        self.assertEqual(
+            plugins[geometry_index + 1],
+            {
+                'artifact': 'hop-json-object-builder-plugin',
+                'root': 'plugins/transforms/hop-json-object-builder',
+                'version': '0.1.0-SNAPSHOT',
+            },
+        )
+
     def test_snapshot_selects_latest_unclassified_zip(self):
         metadata = b'''<metadata><versioning><snapshotVersions>
           <snapshotVersion><extension>zip</extension><value>0.1.0-20260910.100000-1</value><updated>20260910100000</updated></snapshotVersion>

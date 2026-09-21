@@ -25,6 +25,11 @@
       "version": "0.1.0-SNAPSHOT"
     },
     {
+      "artifact": "hop-json-object-builder-plugin",
+      "root": "plugins/transforms/hop-json-object-builder",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
       "artifact": "hop-geoprocessing-plugin",
       "root": "plugins/transforms/hop-geoprocessing",
       "version": "0.1.0-SNAPSHOT"
