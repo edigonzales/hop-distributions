@@ -1,0 +1,12 @@
+{
+  "name": "launcher-local",
+  "description": "Local application launcher execution",
+  "engineRunConfiguration": {
+    "Local": {
+      "safe_mode": false,
+      "rowset_size": "10000",
+      "show_feedback": false,
+      "gather_metrics": false
+    }
+  }
+}

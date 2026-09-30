@@ -1,11 +1,12 @@
 # Hop Geo Distribution
 
 One platform-independent Apache Hop **2.19.0** client distribution, base version **0.2.1-SNAPSHOT**,
-with eleven plugin projects installed:
+with twelve plugin projects installed:
 
 - Geometry Type (shared Geometry/JTS runtime)
 - Raster Type
 - Geometry Inspector
+- Application Launcher (desktop perspective)
 - Geometry Calculator
 - JSON Object Builder
 - Geoprocessing
@@ -53,9 +54,23 @@ Old Vector Raster ZIPs are rejected, not rewritten. GDAL and Form Definition are
 not included. Upgrade by extracting the distribution into a clean directory;
 do not overlay it on an installation containing obsolete plugin JARs.
 
+## Application Launcher
+
+The distribution includes Application Launcher under
+`plugins/misc/hop-application-launcher`, with its libraries and license. In Hop GUI,
+open **Applications / Anwendungen** in the perspective selector. Configure the Git
+repository, branch and a dedicated checkout directory in **Settings / Einstellungen**.
+The default repository is `sogis/datenportal-themenrepo`, branch `main`.
+
+The launcher provides parameter forms for catalogued pipelines and workflows,
+local execution, live logs and revision-linked run reports. See the
+[launcher handbook](https://edigonzales.github.io/hop-application-launcher-plugin/)
+for catalog and parameter configuration.
+
 ## End-to-end verification
 
-With Java 21 or 25 selected through `JAVA_HOME`:
+With Java 21 or 25 selected through `JAVA_HOME` and Git available for disposable
+launcher fixtures (Linux additionally needs an X display, such as `xvfb-run -a`):
 
 ```sh
 python3 scripts/run_e2e.py \
@@ -69,8 +84,13 @@ classloaders. They cover runtime identity under both load orders, plugin loading
 and Inspector initialization, geometry serialization/preview (SRID, Z/M, curves),
 raster clip/reprojection/statistics, vector export, calculator/geoprocessing,
 INTERLIS curve roundtrip, ili2db action/transform, positive and negative validator
-action/transform scenarios, JSON Object Builder and JSON Array Builder example pipelines, and
-GraalPy including Geometry fields.
+action/transform scenarios, JSON Object Builder and JSON Array Builder example
+pipelines, and GraalPy including Geometry fields. Launcher checks
+discover and initialize the installed SWT perspective, clone a disposable local
+Git repository, run a pipeline and workflow through its parameter forms, and
+verify CSV output, logs and revision-linked reports. A missing input file must
+produce a failed run. Launcher settings, checkout and reports are isolated under
+`reports/launcher`; these checks do not access the default themes repository.
 
 Fixture preparation uses a separate JVM with the required data libraries; that
 classpath is never used to run pipelines or runtime identity tests. Adapted test

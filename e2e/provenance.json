@@ -128,5 +128,45 @@
     "repository": "hop-interlis-plugin",
     "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
     "path": "hop-interlis-core/src/test/resources/fixtures/models/2.4/HopIli_Geometry_V1.ili"
+  },
+  "launcher/demo/hello-world.hpl": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/demo/hello-world.hpl"
+  },
+  "launcher/demo/hello-world.hwf": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/demo/hello-world.hwf"
+  },
+  "launcher/demo/hello-world.launcher.yaml": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/demo/hello-world.launcher.yaml"
+  },
+  "launcher/demo/workflow.launcher.yaml": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/demo/workflow.launcher.yaml"
+  },
+  "launcher/shared/hop/applications.yaml": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/shared/hop/applications.yaml"
+  },
+  "launcher/shared/hop/metadata/pipeline-run-configuration/launcher-local.json": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/shared/hop/metadata/pipeline-run-configuration/launcher-local.json"
+  },
+  "launcher/shared/hop/metadata/workflow-run-configuration/launcher-local.json": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "examples/hello-world/shared/hop/metadata/workflow-run-configuration/launcher-local.json"
+  },
+  "ApplicationLauncherProbe.java": {
+    "repository": "hop-application-launcher-plugin",
+    "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
+    "path": "integration-tests/src/test/java/ch/so/agi/hop/launcher/test/InstalledLauncherTest.java"
   }
 }

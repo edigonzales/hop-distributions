@@ -11,6 +11,19 @@ import build_hop_distribution as builder
 
 
 class DistributionTests(unittest.TestCase):
+    def test_distribution_config_includes_application_launcher(self):
+        config_path = Path(__file__).resolve().parents[1] / 'distribution.json'
+        config = json.loads(config_path.read_text())
+        self.assertEqual(
+            [plugin for plugin in config['plugins']
+             if plugin['artifact'] == 'hop-application-launcher-plugin'],
+            [{
+                'artifact': 'hop-application-launcher-plugin',
+                'root': 'plugins/misc/hop-application-launcher',
+                'version': '0.1.0-SNAPSHOT',
+            }],
+        )
+
     def test_distribution_config_includes_raster_type(self):
         config_path = Path(__file__).resolve().parents[1] / 'distribution.json'
         config = json.loads(config_path.read_text())
@@ -158,14 +171,26 @@ class DistributionTests(unittest.TestCase):
             hop=root/'hop.zip'
             self.make_archive(hop, {'hop/lib/core.jar':b'core'})
             entries=self.runtime_entries()
+            launcher_root = 'plugins/misc/hop-application-launcher'
+            launcher_entries = {
+                f'hop/{launcher_root}/hop-application-launcher-0.1.0-SNAPSHOT.jar': b'launcher',
+                f'hop/{launcher_root}/lib/org.eclipse.jgit-7.5.jar': b'jgit',
+                f'hop/{launcher_root}/lib/snakeyaml-engine-2.9.jar': b'yaml',
+                f'hop/{launcher_root}/LICENSE': b'MIT License',
+            }
+            entries.update(launcher_entries)
             config={'distribution_version':'0.2.0','hop_version':'2.19.0','hop_sha512':builder.digest(hop,'sha512'),
                     'snapshot_repository':'https://example.test','plugins':[
                         {'artifact':'geometry','version':'0.2.0-SNAPSHOT','root':'plugins/misc/hop-geometry-type'},
                         {'artifact':'raster','version':'0.1.0-SNAPSHOT','root':'plugins/misc/hop-raster-type'},
-                        {'artifact':'vector','version':'0.1.0-SNAPSHOT','root':'plugins/transforms/vector-raster'}]}
+                        {'artifact':'vector','version':'0.1.0-SNAPSHOT','root':'plugins/transforms/vector-raster'},
+                        {'artifact':'hop-application-launcher-plugin','version':'0.1.0-SNAPSHOT','root':launcher_root}]}
+            downloaded_hashes = {}
             def download(url,path):
                 if url.endswith('maven-metadata.xml'):
-                    Path(path).write_text('<metadata><versioning><snapshotVersions><snapshotVersion><extension>zip</extension><value>0.2.0-20260911.100000-1</value></snapshotVersion></snapshotVersions></versioning></metadata>')
+                    base_version = next(plugin['version'].removesuffix('-SNAPSHOT')
+                                        for plugin in config['plugins'] if f"/{plugin['artifact']}/" in url)
+                    Path(path).write_text(f'<metadata><versioning><snapshotVersions><snapshotVersion><extension>zip</extension><value>{base_version}-20260911.100000-1</value></snapshotVersion></snapshotVersions></versioning></metadata>')
                 elif 'apache-hop-client' in url:
                     Path(path).write_bytes(hop.read_bytes())
                 else:
@@ -174,6 +199,7 @@ class DistributionTests(unittest.TestCase):
                         if f"/{plugin['artifact']}/" in url
                     )
                     self.make_archive(path,{k.removeprefix('hop/'):v for k,v in entries.items() if k.startswith('hop/'+plugin_root)})
+                    downloaded_hashes[url] = builder.digest(path)
             with patch.object(builder,'download',download):
                 metadata=builder.build(config,root/'dist')
             artifact=root/'dist'/metadata['artifacts'][0]['file']
@@ -183,7 +209,22 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(metadata['prerelease'])
             self.assertEqual(metadata['release_tag'],'v0.2.0')
             self.assertEqual(metadata['artifacts'][0]['sha256'],builder.digest(artifact))
-            self.assertEqual(len(metadata['plugins']),3)
+            self.assertEqual(len(metadata['plugins']),4)
+            launcher_url = 'https://example.test/ch/so/agi/hop-application-launcher-plugin/0.1.0-SNAPSHOT/hop-application-launcher-plugin-0.1.0-20260911.100000-1.zip'
+            self.assertEqual(metadata['plugins'][-1], {
+                'artifact': 'hop-application-launcher-plugin',
+                'version': '0.1.0-SNAPSHOT',
+                'root': launcher_root,
+                'resolved_version': '0.1.0-20260911.100000-1',
+                'url': launcher_url,
+                'sha256': downloaded_hashes[launcher_url],
+            })
+            with zipfile.ZipFile(artifact) as archive:
+                self.assertEqual(
+                    {name: archive.read(name) for name in archive.namelist()
+                     if name.startswith(f'hop/{launcher_root}/')},
+                    launcher_entries,
+                )
             self.assertIn('20260911',metadata['plugins'][0]['resolved_version'])
             self.assertEqual(len(list((root/'dist').glob('*.zip'))),1)
 

@@ -1,0 +1,8 @@
+schemaVersion: 1
+applications:
+  - id: demo.hello-world
+    entrypoint: demo/hello-world.hpl
+    sidecar: demo/hello-world.launcher.yaml
+  - id: demo.workflow
+    entrypoint: demo/hello-world.hwf
+    sidecar: demo/workflow.launcher.yaml

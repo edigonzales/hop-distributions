@@ -1,0 +1,16 @@
+schemaVersion: 1
+title: Hello World
+description: >-
+  Hello-World-Pilot. Die XML-Datei wird nicht ausgewertet.
+  Eine vorhandene hello-world.csv im Ausgabeordner wird ersetzt.
+outputDirectoryParameter: OUTPUT_DIR
+parameters:
+  INPUT_XML:
+    label: XML-Datei
+    type: file
+    required: true
+    extensions: [xml]
+  OUTPUT_DIR:
+    label: Ausgabeordner
+    type: directory
+    required: true

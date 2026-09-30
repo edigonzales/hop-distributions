@@ -1,0 +1,9 @@
+{
+  "name": "launcher-local",
+  "description": "Local application launcher execution",
+  "engineRunConfiguration": {
+    "Local": {
+      "safe_mode": false
+    }
+  }
+}

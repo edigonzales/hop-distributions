@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<pipeline>
+  <info>
+    <name>demo.hello-world</name>
+    <parameters>
+      <parameter>
+        <name>INPUT_XML</name>
+        <default_value />
+        <description>Input XML file</description>
+      </parameter>
+      <parameter>
+        <name>OUTPUT_DIR</name>
+        <default_value />
+        <description>Output directory</description>
+      </parameter>
+    </parameters>
+  </info>
+  <order>
+    <hop>
+      <from>Input parameter</from>
+      <to>Hello World</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Hello World</from>
+      <to>Write CSV</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+  <transform>
+    <name>Input parameter</name>
+    <type>GetVariable</type>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+    </partitioning>
+    <GUI>
+      <xloc>100</xloc>
+      <yloc>160</yloc>
+    </GUI>
+    <fields>
+      <field>
+        <name>input_file</name>
+        <variable>${INPUT_XML}</variable>
+        <type>String</type>
+        <length>-1</length>
+        <precision>-1</precision>
+        <trim_type>none</trim_type>
+      </field>
+    </fields>
+  </transform>
+  <transform>
+    <name>Hello World</name>
+    <type>Constant</type>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+    </partitioning>
+    <GUI>
+      <xloc>310</xloc>
+      <yloc>160</yloc>
+    </GUI>
+    <fields>
+      <field>
+        <name>message</name>
+        <type>String</type>
+        <length>-1</length>
+        <precision>-1</precision>
+        <nullif>Hello World</nullif>
+        <set_empty_string>N</set_empty_string>
+      </field>
+    </fields>
+  </transform>
+  <transform>
+    <name>Write CSV</name>
+    <type>TextFileOutput</type>
+    <distribute>Y</distribute>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+    </partitioning>
+    <GUI>
+      <xloc>520</xloc>
+      <yloc>160</yloc>
+    </GUI>
+    <separator>;</separator>
+    <enclosure>"</enclosure>
+    <enclosure_forced>N</enclosure_forced>
+    <enclosure_fix_disabled>N</enclosure_fix_disabled>
+    <header>Y</header>
+    <footer>N</footer>
+    <format>UNIX</format>
+    <compression>None</compression>
+    <encoding>UTF-8</encoding>
+    <fileNameInField>N</fileNameInField>
+    <create_parent_folder>N</create_parent_folder>
+    <file>
+      <name>${OUTPUT_DIR}/hello-world</name>
+      <extention>csv</extention>
+      <append>N</append>
+      <split>N</split>
+      <haspartno>N</haspartno>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <SpecifyFormat>N</SpecifyFormat>
+      <add_to_result_filenames>Y</add_to_result_filenames>
+      <pad>N</pad>
+      <fast_dump>N</fast_dump>
+      <splitevery>0</splitevery>
+    </file>
+    <fields>
+      <field>
+        <name>message</name>
+        <type>String</type>
+        <trim_type>none</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>input_file</name>
+        <type>String</type>
+        <trim_type>none</trim_type>
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+    </fields>
+  </transform>
+</pipeline>

@@ -85,10 +85,23 @@ def main():
     classes=reports/'classes';classes.mkdir()
     core_cp=os.pathsep.join(str(p) for p in runtime_libraries(hop, sys.platform, platform.machine()))
     full_cp=core_cp+os.pathsep+os.pathsep.join(str(p) for p in (hop/'plugins').rglob('*.jar'))
-    run([str(javac),'-proc:none','-cp',core_cp,'-d',str(classes),str(FIXTURES/'RuntimeIdentityProbe.java'),str(FIXTURES/'DistributionRuntimeProbe.java')])
+    run([str(javac),'-proc:none','-cp',core_cp,'-d',str(classes),str(FIXTURES/'RuntimeIdentityProbe.java'),str(FIXTURES/'DistributionRuntimeProbe.java'),str(FIXTURES/'ApplicationLauncherProbe.java')])
     for order in ['raster-first','geometry-first']:
         run([str(java),'-cp',str(classes)+os.pathsep+core_cp,'RuntimeIdentityProbe',order])
     run([str(java),*(['-XstartOnFirstThread'] if sys.platform=='darwin' else []),'-cp',str(classes)+os.pathsep+core_cp,'DistributionRuntimeProbe'])
+    launcher_reports=reports/'launcher';launcher_reports.mkdir()
+    launcher_source=launcher_reports/'source'
+    shutil.copytree(FIXTURES/'launcher',launcher_source)
+    run(['git','-C',str(launcher_source),'init','-b','main'])
+    run(['git','-C',str(launcher_source),'add','-f','.'])
+    hooks=launcher_reports/'empty-hooks';hooks.mkdir()
+    run(['git','-c','user.name=Launcher E2E','-c','user.email=launcher@example.invalid',
+         '-c','commit.gpgsign=false','-c',f'core.hooksPath={hooks}',
+         '-C',str(launcher_source),'commit','-m','Disposable launcher fixture'])
+    revision=run(['git','-C',str(launcher_source),'rev-parse','HEAD']).strip()
+    run([str(java),*(['-XstartOnFirstThread'] if sys.platform=='darwin' else []),
+         '-cp',str(classes)+os.pathsep+core_cp,'ApplicationLauncherProbe',
+         str(launcher_source),str(launcher_reports),revision])
     # Separate fixture process: its broad classpath is never used to execute Hop pipelines.
     run([str(javac),'-proc:none','-cp',full_cp,'-d',str(classes),str(FIXTURES/'RasterFixtures.java')])
     data=reports/'raster';data.mkdir()

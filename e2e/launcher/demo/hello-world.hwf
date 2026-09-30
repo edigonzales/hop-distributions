@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<workflow>
+  <name>Hello World workflow</name>
+  <parameters>
+    <parameter>
+      <name>INPUT_XML</name>
+      <default_value />
+    </parameter>
+    <parameter>
+      <name>OUTPUT_DIR</name>
+      <default_value />
+    </parameter>
+  </parameters>
+  <actions>
+    <action>
+      <name>Start</name>
+      <type>SPECIAL</type>
+      <start>Y</start>
+      <dummy>N</dummy>
+      <repeat>N</repeat>
+      <xloc>100</xloc>
+      <yloc>100</yloc>
+    </action>
+    <action>
+      <name>Write CSV</name>
+      <type>PIPELINE</type>
+      <filename>${PROJECT_HOME}/demo/hello-world.hpl</filename>
+      <run_configuration>launcher-local</run_configuration>
+      <wait_until_finished>Y</wait_until_finished>
+      <params_from_previous>N</params_from_previous>
+      <xloc>330</xloc>
+      <yloc>100</yloc>
+      <parameters>
+        <pass_all_parameters>Y</pass_all_parameters>
+        <parameter>
+          <name>INPUT_XML</name>
+          <value>${INPUT_XML}</value>
+        </parameter>
+        <parameter>
+          <name>OUTPUT_DIR</name>
+          <value>${OUTPUT_DIR}</value>
+        </parameter>
+      </parameters>
+    </action>
+  </actions>
+  <hops>
+    <hop>
+      <from>Start</from>
+      <to>Write CSV</to>
+      <enabled>Y</enabled>
+      <unconditional>Y</unconditional>
+      <evaluation>Y</evaluation>
+    </hop>
+  </hops>
+</workflow>

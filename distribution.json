@@ -20,6 +20,11 @@
       "version": "0.1.0-SNAPSHOT"
     },
     {
+      "artifact": "hop-application-launcher-plugin",
+      "root": "plugins/misc/hop-application-launcher",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
       "artifact": "hop-geometry-calculator-plugin",
       "root": "plugins/transforms/hop-geometry-calculator",
       "version": "0.1.0-SNAPSHOT"
