@@ -35,6 +35,11 @@
       "version": "0.1.0-SNAPSHOT"
     },
     {
+      "artifact": "hop-sdmx-plugin",
+      "root": "plugins/transforms/hop-sdmx",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
       "artifact": "hop-geoprocessing-plugin",
       "root": "plugins/transforms/hop-geoprocessing",
       "version": "0.1.0-SNAPSHOT"

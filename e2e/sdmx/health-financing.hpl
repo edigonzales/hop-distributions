@@ -1,0 +1,104 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<pipeline>
+  <info>
+    <name>bfs-health-financing</name>
+    <name_sync_with_filename>Y</name_sync_with_filename>
+    <pipeline_type>Normal</pipeline_type>
+    <pipeline_status>-1</pipeline_status>
+    <parameters>
+      <parameter>
+        <name>SDMX_ENDPOINT</name>
+        <default_value>https://disseminate.stats.swiss/rest</default_value>
+      </parameter>
+      <parameter>
+        <name>START_PERIOD</name>
+        <default_value>2023</default_value>
+      </parameter>
+      <parameter>
+        <name>END_PERIOD</name>
+        <default_value>2023</default_value>
+      </parameter>
+      <parameter>
+        <name>FINANCING_SOURCES</name>
+        <default_value>Q_1</default_value>
+      </parameter>
+      <parameter>
+        <name>OUTPUT_FILE</name>
+        <default_value>${java.io.tmpdir}/sdmx-health-financing</default_value>
+      </parameter>
+    </parameters>
+  </info>
+  <transform>
+    <type>SdmxInput</type>
+    <name>SDMX Input</name>
+    <endpoint>${SDMX_ENDPOINT}</endpoint>
+    <agency>CH1.COU</agency>
+    <dataflow>DF_COU_HEALTH_FINANCING</dataflow>
+    <version>1.0.0</version>
+    <startPeriod>${START_PERIOD}</startPeriod>
+    <endPeriod>${END_PERIOD}</endPeriod>
+    <language>de</language>
+    <filtersJson>{"Q": "${FINANCING_SOURCES}", "F": "F_1", "UNIT": "CHF", "FREQ": "A"}</filtersJson>
+    <schemaJson>{"flow": {"agency": "CH1.COU", "id": "DF_COU_HEALTH_FINANCING", "version": "1.0.0", "names": {"en": "Financing of health care"}}, "components": [{"id": "Q", "kind": "DIMENSION", "position": 0, "sourceType": "String", "type": "STRING", "names": {"en": "Financing source"}, "codes": [{"id": "Q_1", "names": {"de": "Bund", "en": "Confederation"}}, {"id": "Q_2", "names": {"en": "Cantons"}}, {"id": "_T", "names": {"en": "Total"}}]}, {"id": "F", "kind": "DIMENSION", "position": 1, "sourceType": "String", "type": "STRING", "names": {"en": "Financing scheme"}, "codes": [{"id": "F_1", "names": {"en": "State"}}, {"id": "_T", "names": {"en": "Total"}}]}, {"id": "UNIT", "kind": "DIMENSION", "position": 2, "sourceType": "String", "type": "STRING", "names": {"en": "Measurement unit"}, "codes": [{"id": "CHF", "names": {"en": "Swiss franc"}}, {"id": "EUR", "names": {"en": "Euro"}}]}, {"id": "FREQ", "kind": "DIMENSION", "position": 3, "sourceType": "String", "type": "STRING", "names": {"en": "Frequency"}, "codes": [{"id": "A", "names": {"en": "Annual"}}, {"id": "M", "names": {"en": "Monthly"}}]}, {"id": "TIME_PERIOD", "kind": "TIME", "position": 4, "sourceType": "ObservationalTimePeriod", "type": "STRING", "names": {}, "codes": []}, {"id": "OBS_VALUE", "kind": "MEASURE", "position": -1, "sourceType": "Float", "type": "NUMBER", "names": {}, "codes": []}, {"id": "MULT", "kind": "ATTRIBUTE", "position": -1, "sourceType": "String", "type": "STRING", "names": {"en": "Unit multiplier"}, "codes": [{"id": "6", "names": {"en": "Millions"}}]}, {"id": "OBS_STATUS", "kind": "ATTRIBUTE", "position": -1, "sourceType": "String", "type": "STRING", "names": {"en": "Observation status"}, "codes": [{"id": "A", "names": {"en": "Normal value"}}]}, {"id": "DECIMALS", "kind": "ATTRIBUTE", "position": -1, "sourceType": "String", "type": "STRING", "names": {"en": "Decimals"}, "codes": [{"id": "3", "names": {"en": "Three"}}]}], "regions": [{"constraint": "CH1.COU:ACTUAL(1.0.0)", "included": true, "values": {"FREQ": ["A"], "UNIT": ["CHF"]}}]}</schemaJson>
+    <fieldsJson>[{"name": "Q", "component": "Q", "type": "STRING", "label": false}, {"name": "Q_LABEL", "component": "Q", "type": "STRING", "label": true}, {"name": "F", "component": "F", "type": "STRING", "label": false}, {"name": "F_LABEL", "component": "F", "type": "STRING", "label": true}, {"name": "UNIT", "component": "UNIT", "type": "STRING", "label": false}, {"name": "UNIT_LABEL", "component": "UNIT", "type": "STRING", "label": true}, {"name": "FREQ", "component": "FREQ", "type": "STRING", "label": false}, {"name": "FREQ_LABEL", "component": "FREQ", "type": "STRING", "label": true}, {"name": "TIME_PERIOD", "component": "TIME_PERIOD", "type": "STRING", "label": false}, {"name": "OBS_VALUE", "component": "OBS_VALUE", "type": "NUMBER", "label": false}, {"name": "MULT", "component": "MULT", "type": "STRING", "label": false}, {"name": "MULT_LABEL", "component": "MULT", "type": "STRING", "label": true}, {"name": "OBS_STATUS", "component": "OBS_STATUS", "type": "STRING", "label": false}, {"name": "OBS_STATUS_LABEL", "component": "OBS_STATUS", "type": "STRING", "label": true}, {"name": "DECIMALS", "component": "DECIMALS", "type": "STRING", "label": false}, {"name": "DECIMALS_LABEL", "component": "DECIMALS", "type": "STRING", "label": true}]</fieldsJson>
+    <includeLabels>Y</includeLabels>
+    <copies>1</copies>
+    <distribute>N</distribute>
+    <attributes />
+    <GUI>
+      <xloc>120</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </transform>
+  <transform>
+    <type>TextFileOutput</type>
+    <name>Write result</name>
+    <compression>None</compression>
+    <create_parent_folder>Y</create_parent_folder>
+    <separator>;</separator>
+    <enclosure>"</enclosure>
+    <enclosure_forced>N</enclosure_forced>
+    <header>Y</header>
+    <footer>N</footer>
+    <format>UNIX</format>
+    <fileNameInField>N</fileNameInField>
+    <ignore_fields>N</ignore_fields>
+    <file>
+      <name>${OUTPUT_FILE}</name>
+      <do_not_open_new_file_init>Y</do_not_open_new_file_init>
+      <extension>csv</extension>
+      <append>N</append>
+      <split>N</split>
+      <haspartno>N</haspartno>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <SpecifyFormat>N</SpecifyFormat>
+      <add_to_result_filenames>N</add_to_result_filenames>
+      <pad>N</pad>
+      <fast_dump>N</fast_dump>
+    </file>
+    <fields />
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>600</xloc>
+      <yloc>100</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name />
+    </partitioning>
+    <attributes />
+    <encoding>UTF-8</encoding>
+  </transform>
+  <order>
+    <hop>
+      <from>SDMX Input</from>
+      <to>Write result</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+  <notepads />
+  <attributes />
+  <transform_error_handling />
+</pipeline>

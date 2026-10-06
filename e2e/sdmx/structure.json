@@ -1,0 +1,324 @@
+{
+  "data": {
+    "dataflows": [
+      {
+        "id": "DF_COU_HEALTH_FINANCING",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "names": {
+          "en": "Financing of health care"
+        },
+        "structure": "urn:sdmx:org.sdmx.infomodel.datastructure.DataStructure=CH1.COU:DSD_COU_HEALTH_FINANCING(1.0.0)"
+      }
+    ],
+    "dataStructures": [
+      {
+        "id": "DSD_COU_HEALTH_FINANCING",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "dataStructureComponents": {
+          "dimensionList": {
+            "dimensions": [
+              {
+                "id": "FREQ",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).FREQ",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_FREQ(1.0.0)"
+                },
+                "position": 3
+              },
+              {
+                "id": "UNIT",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).UNIT",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_UNIT(1.0.0)"
+                },
+                "position": 2
+              },
+              {
+                "id": "F",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).F",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_F(1.0.0)"
+                },
+                "position": 1
+              },
+              {
+                "id": "Q",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).Q",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_Q(1.0.0)"
+                },
+                "position": 0
+              }
+            ],
+            "timeDimensions": [
+              {
+                "id": "TIME_PERIOD",
+                "position": 4,
+                "localRepresentation": {
+                  "textFormat": {
+                    "textType": "ObservationalTimePeriod"
+                  }
+                }
+              }
+            ]
+          },
+          "measureList": {
+            "primaryMeasure": {
+              "id": "OBS_VALUE",
+              "localRepresentation": {
+                "textFormat": {
+                  "textType": "Float"
+                }
+              }
+            }
+          },
+          "attributeList": {
+            "attributes": [
+              {
+                "id": "MULT",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).MULT",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_MULT(1.0.0)"
+                }
+              },
+              {
+                "id": "OBS_STATUS",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).OBS_STATUS",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_OBS_STATUS(1.0.0)"
+                }
+              },
+              {
+                "id": "DECIMALS",
+                "conceptIdentity": "urn:sdmx:org.sdmx.infomodel.conceptscheme.Concept=CH1.COU:CS(1.0.0).DECIMALS",
+                "localRepresentation": {
+                  "enumeration": "urn:sdmx:org.sdmx.infomodel.codelist.Codelist=CH1.COU:CL_DECIMALS(1.0.0)"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "codelists": [
+      {
+        "id": "CL_Q",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "Q_1",
+            "names": {
+              "de": "Bund",
+              "en": "Confederation"
+            }
+          },
+          {
+            "id": "Q_2",
+            "names": {
+              "en": "Cantons"
+            }
+          },
+          {
+            "id": "_T",
+            "names": {
+              "en": "Total"
+            }
+          }
+        ]
+      },
+      {
+        "id": "CL_F",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "F_1",
+            "names": {
+              "en": "State"
+            }
+          },
+          {
+            "id": "_T",
+            "names": {
+              "en": "Total"
+            }
+          }
+        ]
+      },
+      {
+        "id": "CL_UNIT",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "CHF",
+            "names": {
+              "en": "Swiss franc"
+            }
+          },
+          {
+            "id": "EUR",
+            "names": {
+              "en": "Euro"
+            }
+          }
+        ]
+      },
+      {
+        "id": "CL_FREQ",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "A",
+            "names": {
+              "en": "Annual"
+            }
+          },
+          {
+            "id": "M",
+            "names": {
+              "en": "Monthly"
+            }
+          }
+        ]
+      },
+      {
+        "id": "CL_MULT",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "6",
+            "names": {
+              "en": "Millions"
+            }
+          }
+        ]
+      },
+      {
+        "id": "CL_OBS_STATUS",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "A",
+            "names": {
+              "en": "Normal value"
+            }
+          }
+        ]
+      },
+      {
+        "id": "CL_DECIMALS",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "codes": [
+          {
+            "id": "3",
+            "names": {
+              "en": "Three"
+            }
+          }
+        ]
+      }
+    ],
+    "conceptSchemes": [
+      {
+        "id": "CS",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "concepts": [
+          {
+            "id": "Q",
+            "names": {
+              "en": "Financing source"
+            }
+          },
+          {
+            "id": "F",
+            "names": {
+              "en": "Financing scheme"
+            }
+          },
+          {
+            "id": "UNIT",
+            "names": {
+              "en": "Measurement unit"
+            }
+          },
+          {
+            "id": "FREQ",
+            "names": {
+              "en": "Frequency"
+            }
+          },
+          {
+            "id": "MULT",
+            "names": {
+              "en": "Unit multiplier"
+            }
+          },
+          {
+            "id": "OBS_STATUS",
+            "names": {
+              "en": "Observation status"
+            }
+          },
+          {
+            "id": "DECIMALS",
+            "names": {
+              "en": "Decimals"
+            }
+          },
+          {
+            "id": "TIME_PERIOD",
+            "names": {
+              "en": "Time period"
+            }
+          },
+          {
+            "id": "OBS_VALUE",
+            "names": {
+              "en": "Observation value"
+            }
+          }
+        ]
+      }
+    ],
+    "contentConstraints": [
+      {
+        "id": "ACTUAL",
+        "agencyID": "CH1.COU",
+        "version": "1.0.0",
+        "constraintAttachment": {
+          "dataflows": [
+            "urn:sdmx:org.sdmx.infomodel.datastructure.Dataflow=CH1.COU:DF_COU_HEALTH_FINANCING(1.0.0)"
+          ]
+        },
+        "cubeRegions": [
+          {
+            "isIncluded": true,
+            "keyValues": [
+              {
+                "id": "FREQ",
+                "values": [
+                  "A"
+                ]
+              },
+              {
+                "id": "UNIT",
+                "values": [
+                  "CHF"
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

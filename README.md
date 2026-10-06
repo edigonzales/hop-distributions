@@ -1,7 +1,7 @@
 # Hop Geo Distribution
 
 One platform-independent Apache Hop **2.19.0** client distribution, base version **0.2.1-SNAPSHOT**,
-with twelve plugin projects installed:
+with thirteen plugin projects installed:
 
 - Geometry Type (shared Geometry/JTS runtime)
 - Raster Type
@@ -9,6 +9,7 @@ with twelve plugin projects installed:
 - Application Launcher (desktop perspective)
 - Geometry Calculator
 - JSON Object Builder
+- SDMX Input
 - Geoprocessing
 - Vector Raster (GeoTools; no GDAL)
 - INTERLIS
@@ -59,13 +60,29 @@ do not overlay it on an installation containing obsolete plugin JARs.
 The distribution includes Application Launcher under
 `plugins/misc/hop-application-launcher`, with its libraries and license. In Hop GUI,
 open **Applications / Anwendungen** in the perspective selector. Configure the Git
-repository, branch and a dedicated checkout directory in **Settings / Einstellungen**.
+repository, branch and a dedicated checkout base directory in **Settings / Einstellungen**.
 The default repository is `sogis/datenportal-themenrepo`, branch `main`.
+The launcher manages a separate checkout subdirectory for each configured repository.
 
 The launcher provides parameter forms for catalogued pipelines and workflows,
 local execution, live logs and revision-linked run reports. See the
 [launcher handbook](https://edigonzales.github.io/hop-application-launcher-plugin/)
 for catalog and parameter configuration.
+
+## SDMX Input
+
+SDMX Input is installed under `plugins/transforms/hop-sdmx` from
+`ch.so.agi:hop-sdmx-plugin:0.1.0-SNAPSHOT`. Find **SDMX Input** in Hop's **Input**
+category. Its dialog discovers dataflows, dimensions and code lists, while the
+pipeline stores a fixed output schema. Start/end periods and dimension filters
+support Hop parameters, including values supplied by Application Launcher.
+Labels are separate fields resolved from structure metadata; codes and SDMX
+period strings are preserved. BFS is the first verified provider.
+
+See the [SDMX handbook](https://edigonzales.github.io/hop-sdmx-plugin/)
+for configuration and the parameterized BFS example. The distribution tests use
+[e2e/sdmx/health-financing.hpl](e2e/sdmx/health-financing.hpl) with a local HTTP
+fixture server; the pipeline's default endpoint points to BFS for manual use.
 
 ## End-to-end verification
 
@@ -85,7 +102,12 @@ and Inspector initialization, geometry serialization/preview (SRID, Z/M, curves)
 raster clip/reprojection/statistics, vector export, calculator/geoprocessing,
 INTERLIS curve roundtrip, ili2db action/transform, positive and negative validator
 action/transform scenarios, JSON Object Builder and JSON Array Builder example
-pipelines, and GraalPy including Geometry fields. Launcher checks
+pipelines, and GraalPy including Geometry fields. SDMX checks cover installed
+plugin discovery, parameterized periods, stable output columns, codes and German
+labels, numeric and missing observations, multiplier/status preservation,
+incompatible schema rejection before data retrieval, rejection of deletion actions,
+and cancellation of a streaming pipeline without retrying the data request.
+They use a local HTTP server and require no BFS availability. Launcher checks
 discover and initialize the installed SWT perspective, clone a disposable local
 Git repository, run a pipeline and workflow through its parameter forms, and
 verify CSV output, logs and revision-linked reports. A missing input file must

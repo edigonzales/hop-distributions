@@ -24,6 +24,13 @@ class DistributionTests(unittest.TestCase):
             }],
         )
 
+    def test_distribution_config_includes_sdmx(self):
+        config = json.loads((Path(__file__).resolve().parents[1] / 'distribution.json').read_text())
+        self.assertEqual(
+            [plugin for plugin in config['plugins'] if plugin['artifact'] == 'hop-sdmx-plugin'],
+            [dict(artifact='hop-sdmx-plugin', root='plugins/transforms/hop-sdmx', version='0.1.0-SNAPSHOT')],
+        )
+
     def test_distribution_config_includes_raster_type(self):
         config_path = Path(__file__).resolve().parents[1] / 'distribution.json'
         config = json.loads(config_path.read_text())
@@ -179,12 +186,21 @@ class DistributionTests(unittest.TestCase):
                 f'hop/{launcher_root}/LICENSE': b'MIT License',
             }
             entries.update(launcher_entries)
+            sdmx_root = 'plugins/transforms/hop-sdmx'
+            sdmx_entries = {
+                f'hop/{sdmx_root}/hop-transform-sdmx-0.1.0-SNAPSHOT.jar': b'sdmx transform',
+                f'hop/{sdmx_root}/lib/hop-sdmx-core-0.1.0-SNAPSHOT.jar': b'sdmx core',
+                f'hop/{sdmx_root}/lib/commons-csv-1.14.jar': b'csv',
+                f'hop/{sdmx_root}/LICENSE': b'MIT License',
+            }
+            entries.update(sdmx_entries)
             config={'distribution_version':'0.2.0','hop_version':'2.19.0','hop_sha512':builder.digest(hop,'sha512'),
                     'snapshot_repository':'https://example.test','plugins':[
                         {'artifact':'geometry','version':'0.2.0-SNAPSHOT','root':'plugins/misc/hop-geometry-type'},
                         {'artifact':'raster','version':'0.1.0-SNAPSHOT','root':'plugins/misc/hop-raster-type'},
                         {'artifact':'vector','version':'0.1.0-SNAPSHOT','root':'plugins/transforms/vector-raster'},
-                        {'artifact':'hop-application-launcher-plugin','version':'0.1.0-SNAPSHOT','root':launcher_root}]}
+                        {'artifact':'hop-application-launcher-plugin','version':'0.1.0-SNAPSHOT','root':launcher_root},
+                        {'artifact':'hop-sdmx-plugin','version':'0.1.0-SNAPSHOT','root':sdmx_root}]}
             downloaded_hashes = {}
             def download(url,path):
                 if url.endswith('maven-metadata.xml'):
@@ -209,9 +225,9 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(metadata['prerelease'])
             self.assertEqual(metadata['release_tag'],'v0.2.0')
             self.assertEqual(metadata['artifacts'][0]['sha256'],builder.digest(artifact))
-            self.assertEqual(len(metadata['plugins']),4)
+            self.assertEqual(len(metadata['plugins']),5)
             launcher_url = 'https://example.test/ch/so/agi/hop-application-launcher-plugin/0.1.0-SNAPSHOT/hop-application-launcher-plugin-0.1.0-20260911.100000-1.zip'
-            self.assertEqual(metadata['plugins'][-1], {
+            self.assertEqual(metadata['plugins'][-2], {
                 'artifact': 'hop-application-launcher-plugin',
                 'version': '0.1.0-SNAPSHOT',
                 'root': launcher_root,
@@ -219,7 +235,15 @@ class DistributionTests(unittest.TestCase):
                 'url': launcher_url,
                 'sha256': downloaded_hashes[launcher_url],
             })
+            sdmx_url = 'https://example.test/ch/so/agi/hop-sdmx-plugin/0.1.0-SNAPSHOT/hop-sdmx-plugin-0.1.0-20260911.100000-1.zip'
+            self.assertEqual(metadata['plugins'][-1], dict(
+                artifact='hop-sdmx-plugin', version='0.1.0-SNAPSHOT', root=sdmx_root,
+                resolved_version='0.1.0-20260911.100000-1', url=sdmx_url,
+                sha256=downloaded_hashes[sdmx_url]))
             with zipfile.ZipFile(artifact) as archive:
+                self.assertEqual(
+                    {name: archive.read(name) for name in archive.namelist()
+                     if name.startswith(f'hop/{sdmx_root}/')}, sdmx_entries)
                 self.assertEqual(
                     {name: archive.read(name) for name in archive.namelist()
                      if name.startswith(f'hop/{launcher_root}/')},

@@ -80,7 +80,14 @@ public class ApplicationLauncherProbe {
       perspective.perspectiveActivated();
       Composite content = (Composite) perspective.getControl();
       waitUi(display, () -> button(content, "Start").getEnabled(), content);
-      require(Files.isDirectory(work.resolve("checkout/.git")), "Local repository was not cloned");
+      Path checkoutBase = Path.of(HopConfig.readOptionString("applicationLauncher.checkoutBase", ""));
+      require(checkoutBase.equals(work.resolve("checkout-repositories")),
+          "Legacy checkout setting was not migrated to an isolated checkout base");
+      require(!Files.exists(work.resolve("checkout")), "Legacy checkout must remain untouched");
+      try (var repositories = Files.list(checkoutBase)) {
+        require(repositories.filter(path -> Files.isDirectory(path.resolve(".git"))).count() == 1,
+            "Expected one cloned local repository under the managed checkout base");
+      }
       Tree tree = (Tree) marked(content, "launcher.apps", Boolean.TRUE);
       require(applications(tree.getItems()).size() == 2, "Expected pipeline and workflow catalog");
       for (String id : List.of("demo.hello-world", "demo.workflow")) {

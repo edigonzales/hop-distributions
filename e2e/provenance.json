@@ -168,5 +168,30 @@
     "repository": "hop-application-launcher-plugin",
     "commit": "3102cf1fe0acdb7f414485bde1aad9e20efa81c6",
     "path": "integration-tests/src/test/java/ch/so/agi/hop/launcher/test/InstalledLauncherTest.java"
+  },
+  "sdmx/structure.json": {
+    "repository": "hop-sdmx-plugin",
+    "commit": "69e48fdd2cc85f1ae5abb7c0badd9650859f8e9a",
+    "path": "e2e/fixtures/structure.json"
+  },
+  "sdmx/observations.csv": {
+    "repository": "hop-sdmx-plugin",
+    "commit": "69e48fdd2cc85f1ae5abb7c0badd9650859f8e9a",
+    "path": "e2e/fixtures/observations.csv"
+  },
+  "sdmx/health-financing.hpl": {
+    "repository": "hop-sdmx-plugin",
+    "commit": "69e48fdd2cc85f1ae5abb7c0badd9650859f8e9a",
+    "path": "examples/bfs-health-financing/bfs-health-financing.hpl"
+  },
+  "SdmxCancellationProbe.java": {
+    "repository": "hop-sdmx-plugin",
+    "commit": "69e48fdd2cc85f1ae5abb7c0badd9650859f8e9a",
+    "path": "e2e/InstalledCancellation.java"
+  },
+  "sdmx_cases.py": {
+    "repository": "hop-sdmx-plugin",
+    "commit": "69e48fdd2cc85f1ae5abb7c0badd9650859f8e9a",
+    "path": "scripts/run-e2e.py"
   }
 }
