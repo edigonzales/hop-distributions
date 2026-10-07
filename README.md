@@ -1,7 +1,7 @@
 # Hop Geo Distribution
 
 One platform-independent Apache Hop **2.19.0** client distribution, base version **0.2.1-SNAPSHOT**,
-with thirteen plugin projects installed:
+with fourteen plugin projects installed:
 
 - Geometry Type (shared Geometry/JTS runtime)
 - Raster Type
@@ -15,6 +15,7 @@ with thirteen plugin projects installed:
 - INTERLIS
 - ili2db (action and transform)
 - ilivalidator (action and transform)
+- INTERLIS Row Validator
 - Python/GraalPy
 
 ## Build
@@ -84,6 +85,28 @@ for configuration and the parameterized BFS example. The distribution tests use
 [e2e/sdmx/health-financing.hpl](e2e/sdmx/health-financing.hpl) with a local HTTP
 fixture server; the pipeline's default endpoint points to BFS for manual use.
 
+## INTERLIS Row Validator
+
+INTERLIS Row Validator is installed under `plugins/transforms/interlis-row-validator`
+from `ch.so.agi:hop-interlis-row-validator-plugin:0.1.0-SNAPSHOT`. Find
+**Row Stream Validator (INTERLIS)** in Hop's **Validation** category. Map incoming
+scalar fields to attributes of one INTERLIS class. The complete finite input stream
+forms one validation unit; original fields and values, including unmapped fields,
+are preserved. Geometry, structures and association roles are unsupported.
+
+The native Local engine is required. **Full validation**, the default, requires
+one transform copy without partitioning and releases rows in reception order only
+after successful validation, including the second pass. Validation errors release
+no rows. Its original-row cache can spool to disk, optionally with compression.
+**Single Pass** emits checked rows immediately and allows independent parallel
+copies, but omits second-pass class constraints, including some MANDATORY
+CONSTRAINTs. On the first error it stops; previously emitted rows cannot be recalled.
+
+Typed Date/Timestamp mappings require an explicit conversion time zone. Optional
+JSONL reports record diagnostics, validation decisions and emitted row counts.
+See the [Row Validator handbook](https://edigonzales.github.io/hop-interlis-row-validator-plugin/row-validator/main/index.html#row-validator)
+for configuration and limitations.
+
 ## End-to-end verification
 
 With Java 21 or 25 selected through `JAVA_HOME` and Git available for disposable
@@ -114,11 +137,20 @@ verify CSV output, logs and revision-linked reports. A missing input file must
 produce a failed run. Launcher settings, checkout and reports are isolated under
 `reports/launcher`; these checks do not access the default themes repository.
 
+Row Validator checks cover full validation with compressed one-row-cache spooling,
+unchanged original values and ordering, late UNIQUE conflicts and MANDATORY
+CONSTRAINT failures with no output, the limited Single Pass scope and early failure,
+empty input, parallel Single Pass copies, rejection of parallel Full validation,
+and typed temporal conversion with `Europe/Zurich`. They verify JSONL completion,
+status, release decisions and row counts, plus spool cleanup. All nine scenarios
+use small local fixtures; reports and generated pipelines remain under
+`reports/row-validator`.
+
 Fixture preparation uses a separate JVM with the required data libraries; that
 classpath is never used to run pipelines or runtime identity tests. Adapted test
 fixtures are attributed in `e2e/provenance.json`.
 
-### Validator behavior
+### File validator behavior
 
 Static validation without incoming rows applies `failPipelineOnInvalid` just like
 row-driven validation. Technical validation errors always fail the transform; an

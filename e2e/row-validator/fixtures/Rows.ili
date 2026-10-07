@@ -1,0 +1,26 @@
+INTERLIS 2.3;
+MODEL Rows (en) AT "https://example.org" VERSION "2026-10-07" =
+  DOMAIN
+    Day = FORMAT INTERLIS.XMLDate "1900-01-01" .. "2100-12-31";
+    DayAlias = FORMAT Day "2000-01-01" .. "2099-12-31";
+    Moment = FORMAT INTERLIS.XMLDateTime "1900-01-01T00:00:00.000" .. "2100-12-31T23:59:59.999";
+    Clock = FORMAT INTERLIS.XMLTime "00:00:00.000" .. "23:59:59.999";
+  TOPIC Data =
+    CLASS Base (ABSTRACT) =
+      key : MANDATORY TEXT*30;
+    END Base;
+    CLASS Row EXTENDS Base =
+      amount : MANDATORY 0 .. 1000;
+      start : 0 .. 1000;
+      finish : 0 .. 1000;
+      day : DayAlias;
+      clock : Clock;
+      moment : Moment;
+      oldDay : INTERLIS.INTERLIS_1_DATE;
+      active : BOOLEAN;
+      category : (one, two);
+      MANDATORY CONSTRAINT start <= finish;
+      UNIQUE key;
+    END Row;
+  END Data;
+END Rows.

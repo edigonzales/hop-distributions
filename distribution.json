@@ -75,6 +75,11 @@
       "version": "0.1.0-SNAPSHOT"
     },
     {
+      "artifact": "hop-interlis-row-validator-plugin",
+      "root": "plugins/transforms/interlis-row-validator",
+      "version": "0.1.0-SNAPSHOT"
+    },
+    {
       "artifact": "hop-transform-graalpy",
       "root": "plugins/transforms/graalpy",
       "version": "0.1.0-SNAPSHOT"

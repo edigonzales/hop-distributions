@@ -19,6 +19,7 @@ FIXTURES = ROOT / 'e2e'
 sys.path.insert(0, str(FIXTURES))
 import ili2db_cases
 import validator_cases
+import row_validator_cases
 import sdmx_cases
 
 
@@ -205,6 +206,7 @@ def main():
     source=next(t for t in invalid.getroot().findall('transform') if t.findtext('name')=='Files')
     for item in source.findall('data/line/item'):item.text=str(fixtures/'invalid.xtf')
     definition=validation/'invalid.hpl';invalid.write(definition);pipeline(definition,expected=1)
+    row_validator_cases.verify(pipeline, reports)
     run([sys.executable,str(FIXTURES/'python/scripts/run-e2e.py'),'--hop-home',str(hop),'--work-dir',str(reports/'python')])
     (reports/'results.json').write_text(json.dumps({'result':'passed','archive_sha256':digest(args.archive),'commands':counter},indent=2)+'\n')
     print('All distribution E2E scenarios passed',flush=True)

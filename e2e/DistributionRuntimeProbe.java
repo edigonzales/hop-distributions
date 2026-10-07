@@ -17,7 +17,7 @@ public class DistributionRuntimeProbe {
       "SOGIS_RASTER_VALUE_ZONAL_STATS", "SOGIS_RASTER_WRITER", "GEOMETRY_CALCULATOR_TRANSFORM",
       "JSON_OBJECT_BUILDER", "JSON_ARRAY_BUILDER", "SdmxInput",
       "INTERLIS_INPUT", "INTERLIS_OUTPUT", "INTERLIS_ILI2DB_TRANSFORM",
-      "INTERLIS_ILIVALIDATOR_TRANSFORM", "GraalPyTransform"};
+      "INTERLIS_ILIVALIDATOR_TRANSFORM", "INTERLIS_ROW_VALIDATOR_TRANSFORM", "GraalPyTransform"};
     for (String id : transforms) {
       var plugin=registry.findPluginWithId(TransformPluginType.class,id);
       if(plugin==null) throw new AssertionError("Missing transform "+id);
@@ -25,6 +25,21 @@ public class DistributionRuntimeProbe {
       for(String name:plugin.getClassMap().values()) loader.loadClass(name);
       System.out.println("Registered and loadable: "+id);
     }
+    var rowValidator = registry.findPluginWithId(TransformPluginType.class,
+        "INTERLIS_ROW_VALIDATOR_TRANSFORM");
+    var rowValidatorLoader = registry.getClassLoader(rowValidator);
+    var rowValidatorRoot = Path.of("plugins/transforms/interlis-row-validator").toRealPath();
+    for (String name : new String[]{"ch.so.agi.rowvalidator.transform.RowValidatorMeta",
+        "ch.so.agi.rowvalidator.transform.RowValidator",
+        "ch.so.agi.rowvalidator.transform.RowValidatorData",
+        "ch.so.agi.rowvalidator.transform.RowValidatorDialog"}) {
+      var type = rowValidatorLoader.loadClass(name);
+      var origin = Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI())
+          .toRealPath();
+      if (type.getClassLoader() != rowValidatorLoader || !origin.startsWith(rowValidatorRoot))
+        throw new AssertionError("Row Validator class outside installed plugin: " + name + " " + origin);
+    }
+    System.out.println("Row Validator classes and dialog loaded from installed plugin");
     for(String id:new String[]{"INTERLIS_ILI2DB_ACTION","INTERLIS_ILIVALIDATOR_ACTION"}) {
       var plugin=registry.findPluginWithId(ActionPluginType.class,id);
       if(plugin==null) throw new AssertionError("Missing action "+id);

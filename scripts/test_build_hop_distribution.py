@@ -31,6 +31,15 @@ class DistributionTests(unittest.TestCase):
             [dict(artifact='hop-sdmx-plugin', root='plugins/transforms/hop-sdmx', version='0.1.0-SNAPSHOT')],
         )
 
+    def test_distribution_config_includes_interlis_row_validator(self):
+        config = json.loads((Path(__file__).resolve().parents[1] / 'distribution.json').read_text())
+        self.assertEqual(
+            [plugin for plugin in config['plugins']
+             if plugin['artifact'] == 'hop-interlis-row-validator-plugin'],
+            [dict(artifact='hop-interlis-row-validator-plugin',
+                  root='plugins/transforms/interlis-row-validator', version='0.1.0-SNAPSHOT')],
+        )
+
     def test_distribution_config_includes_raster_type(self):
         config_path = Path(__file__).resolve().parents[1] / 'distribution.json'
         config = json.loads(config_path.read_text())
@@ -194,13 +203,20 @@ class DistributionTests(unittest.TestCase):
                 f'hop/{sdmx_root}/LICENSE': b'MIT License',
             }
             entries.update(sdmx_entries)
+            row_validator_root = 'plugins/transforms/interlis-row-validator'
+            row_validator_entries = {
+                f'hop/{row_validator_root}/hop-transform-interlis-row-validator-0.1.0-SNAPSHOT.jar':
+                    b'shaded row validator',
+            }
+            entries.update(row_validator_entries)
             config={'distribution_version':'0.2.0','hop_version':'2.19.0','hop_sha512':builder.digest(hop,'sha512'),
                     'snapshot_repository':'https://example.test','plugins':[
                         {'artifact':'geometry','version':'0.2.0-SNAPSHOT','root':'plugins/misc/hop-geometry-type'},
                         {'artifact':'raster','version':'0.1.0-SNAPSHOT','root':'plugins/misc/hop-raster-type'},
                         {'artifact':'vector','version':'0.1.0-SNAPSHOT','root':'plugins/transforms/vector-raster'},
                         {'artifact':'hop-application-launcher-plugin','version':'0.1.0-SNAPSHOT','root':launcher_root},
-                        {'artifact':'hop-sdmx-plugin','version':'0.1.0-SNAPSHOT','root':sdmx_root}]}
+                        {'artifact':'hop-sdmx-plugin','version':'0.1.0-SNAPSHOT','root':sdmx_root},
+                        {'artifact':'hop-interlis-row-validator-plugin','version':'0.1.0-SNAPSHOT','root':row_validator_root}]}
             downloaded_hashes = {}
             def download(url,path):
                 if url.endswith('maven-metadata.xml'):
@@ -225,9 +241,10 @@ class DistributionTests(unittest.TestCase):
             self.assertFalse(metadata['prerelease'])
             self.assertEqual(metadata['release_tag'],'v0.2.0')
             self.assertEqual(metadata['artifacts'][0]['sha256'],builder.digest(artifact))
-            self.assertEqual(len(metadata['plugins']),5)
+            self.assertEqual(len(metadata['plugins']),6)
+            plugins = {plugin['artifact']: plugin for plugin in metadata['plugins']}
             launcher_url = 'https://example.test/ch/so/agi/hop-application-launcher-plugin/0.1.0-SNAPSHOT/hop-application-launcher-plugin-0.1.0-20260911.100000-1.zip'
-            self.assertEqual(metadata['plugins'][-2], {
+            self.assertEqual(plugins['hop-application-launcher-plugin'], {
                 'artifact': 'hop-application-launcher-plugin',
                 'version': '0.1.0-SNAPSHOT',
                 'root': launcher_root,
@@ -236,11 +253,19 @@ class DistributionTests(unittest.TestCase):
                 'sha256': downloaded_hashes[launcher_url],
             })
             sdmx_url = 'https://example.test/ch/so/agi/hop-sdmx-plugin/0.1.0-SNAPSHOT/hop-sdmx-plugin-0.1.0-20260911.100000-1.zip'
-            self.assertEqual(metadata['plugins'][-1], dict(
+            self.assertEqual(plugins['hop-sdmx-plugin'], dict(
                 artifact='hop-sdmx-plugin', version='0.1.0-SNAPSHOT', root=sdmx_root,
                 resolved_version='0.1.0-20260911.100000-1', url=sdmx_url,
                 sha256=downloaded_hashes[sdmx_url]))
+            row_validator_url = 'https://example.test/ch/so/agi/hop-interlis-row-validator-plugin/0.1.0-SNAPSHOT/hop-interlis-row-validator-plugin-0.1.0-20260911.100000-1.zip'
+            self.assertEqual(plugins['hop-interlis-row-validator-plugin'], dict(
+                artifact='hop-interlis-row-validator-plugin', version='0.1.0-SNAPSHOT',
+                root=row_validator_root, resolved_version='0.1.0-20260911.100000-1',
+                url=row_validator_url, sha256=downloaded_hashes[row_validator_url]))
             with zipfile.ZipFile(artifact) as archive:
+                self.assertEqual(
+                    {name: archive.read(name) for name in archive.namelist()
+                     if name.startswith(f'hop/{row_validator_root}/')}, row_validator_entries)
                 self.assertEqual(
                     {name: archive.read(name) for name in archive.namelist()
                      if name.startswith(f'hop/{sdmx_root}/')}, sdmx_entries)

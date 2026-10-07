@@ -1,0 +1,15 @@
+INTERLIS 2.4;
+MODEL TimeGate (en) AT "https://example.org" VERSION "2026-10-07" =
+  DOMAIN
+    Day = FORMAT INTERLIS.XMLDate "2024-03-01" .. "2024-03-01";
+    Clock = FORMAT INTERLIS.XMLTime "00:30:00.123" .. "00:30:00.123";
+    Moment = FORMAT INTERLIS.XMLDateTime "2024-03-01T00:30:00.123" .. "2024-03-01T00:30:00.123";
+  TOPIC Data =
+    CLASS Row =
+      key : TEXT*30;
+      day : MANDATORY Day;
+      clock : MANDATORY Clock;
+      moment : MANDATORY Moment;
+    END Row;
+  END Data;
+END TimeGate.

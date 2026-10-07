@@ -193,5 +193,20 @@
     "repository": "hop-sdmx-plugin",
     "commit": "69e48fdd2cc85f1ae5abb7c0badd9650859f8e9a",
     "path": "scripts/run-e2e.py"
+  },
+  "row-validator/fixtures/Rows.ili": {
+    "repository": "hop-interlis-row-validator-plugin",
+    "commit": "531d5b536c9ed5af4c39415a3705b7596c540cca",
+    "path": "core/src/test/resources/models/Rows.ili"
+  },
+  "row-validator/fixtures/TimeGate.ili": {
+    "repository": "hop-interlis-row-validator-plugin",
+    "commit": "531d5b536c9ed5af4c39415a3705b7596c540cca",
+    "path": "core/src/test/resources/models/TimeGate.ili"
+  },
+  "row_validator_cases.py": {
+    "repository": "hop-interlis-row-validator-plugin",
+    "commit": "531d5b536c9ed5af4c39415a3705b7596c540cca",
+    "path": "scripts/run-e2e.py"
   }
 }
