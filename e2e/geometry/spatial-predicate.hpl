@@ -1,0 +1,408 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<pipeline>
+  <info>
+    <name>spatial-predicate</name>
+    <name_sync_with_filename>Y</name_sync_with_filename>
+    <pipeline_type>Normal</pipeline_type>
+    <pipeline_status>-1</pipeline_status>
+    <parameters>
+      <parameter>
+        <name>E2E_INPUT_DIR</name>
+        <default_value>${Internal.Pipeline.Filename.Directory}/fixtures</default_value>
+        <description>Local fixture directory</description>
+      </parameter>
+      <parameter>
+        <name>E2E_OUTPUT_DIR</name>
+        <default_value>${Internal.Pipeline.Filename.Directory}/output</default_value>
+        <description>CSV output directory</description>
+      </parameter>
+    </parameters>
+  </info>
+  <transform>
+    <type>TextFileInput2</type>
+    <name>Read geometry</name>
+    <file_type>CSV</file_type>
+    <compression>None</compression>
+    <separator>;</separator>
+    <enclosure>"</enclosure>
+    <enclosure_breaks>N</enclosure_breaks>
+    <escapechar>\</escapechar>
+    <header>Y</header>
+    <prependFileName>N</prependFileName>
+    <nr_headerlines>1</nr_headerlines>
+    <footer>N</footer>
+    <nr_footerlines>1</nr_footerlines>
+    <line_wrapped>N</line_wrapped>
+    <nr_wraps>1</nr_wraps>
+    <layout_paged>N</layout_paged>
+    <nr_lines_per_page>80</nr_lines_per_page>
+    <nr_lines_doc_header>0</nr_lines_doc_header>
+    <noempty>Y</noempty>
+    <include>N</include>
+    <include_field />
+    <rownum>N</rownum>
+    <rownum_field />
+    <rownumByFile>N</rownumByFile>
+    <format>Unix</format>
+    <encoding />
+    <limit>0</limit>
+    <date_format_lenient>Y</date_format_lenient>
+    <date_format_locale>en_US</date_format_locale>
+    <length>Characters</length>
+    <filters />
+    <error_count_field />
+    <error_fields_field />
+    <error_text_field />
+    <error_line_skipped>N</error_line_skipped>
+    <schema_definition />
+    <ignore_fields>N</ignore_fields>
+    <shortFileFieldName />
+    <extensionFieldName />
+    <pathFieldName />
+    <sizeFieldName />
+    <hiddenFieldName />
+    <lastModificationTimeFieldName />
+    <uriNameFieldName />
+    <rootUriNameFieldName />
+    <files>
+      <file>
+        <name>${E2E_INPUT_DIR}/predicate-points.csv</name>
+        <filemask />
+        <exclude_filemask />
+        <file_required>Y</file_required>
+        <include_subfolders>N</include_subfolders>
+      </file>
+    </files>
+    <accept_filenames>N</accept_filenames>
+    <accept_transform_name />
+    <passing_through_fields>N</passing_through_fields>
+    <accept_field />
+    <add_to_result_filenames>N</add_to_result_filenames>
+    <error_ignored>N</error_ignored>
+    <file_error_field />
+    <file_error_message_field />
+    <skip_bad_files>N</skip_bad_files>
+    <bad_line_files_destination_directory />
+    <bad_line_files_extension>warning</bad_line_files_extension>
+    <error_line_files_destination_directory />
+    <error_line_files_extension>error</error_line_files_extension>
+    <line_number_files_destination_directory />
+    <line_number_files_extension>line</line_number_files_extension>
+    <fields>
+      <field>
+        <name>id</name>
+        <position>-1</position>
+        <length>-1</length>
+        <type>String</type>
+        <ignore>N</ignore>
+        <format />
+        <trim_type>both</trim_type>
+        <precision>-1</precision>
+        <currency />
+        <decimal>.</decimal>
+        <group>,</group>
+        <repeat>N</repeat>
+        <null_string />
+        <if_null_value />
+      </field>
+      <field>
+        <name>geometry</name>
+        <position>-1</position>
+        <length>-1</length>
+        <type>String</type>
+        <ignore>N</ignore>
+        <format />
+        <trim_type>both</trim_type>
+        <precision>-1</precision>
+        <currency />
+        <decimal>.</decimal>
+        <group>,</group>
+        <repeat>N</repeat>
+        <null_string />
+        <if_null_value />
+      </field>
+    </fields>
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>100</xloc>
+      <yloc>100</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name />
+    </partitioning>
+    <attributes />
+  </transform>
+  <transform>
+    <name>Spatial Predicate</name>
+    <type>SPATIAL_PREDICATE_TRANSFORM</type>
+    <primaryGeometryFieldName>geometry</primaryGeometryFieldName>
+    <secondaryGeometryFieldName>mask</secondaryGeometryFieldName>
+    <operationId>within</operationId>
+    <resultMode>BOOLEAN_COLUMN</resultMode>
+    <booleanFieldName>matches</booleanFieldName>
+    <infoTransformName>Prepare secondary geometry</infoTransformName>
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>550</xloc>
+      <yloc>100</yloc>
+    </GUI>
+  </transform>
+  <transform>
+    <type>TextFileInput2</type>
+    <name>Read secondary</name>
+    <file_type>CSV</file_type>
+    <compression>None</compression>
+    <separator>;</separator>
+    <enclosure>"</enclosure>
+    <enclosure_breaks>N</enclosure_breaks>
+    <escapechar>\</escapechar>
+    <header>Y</header>
+    <prependFileName>N</prependFileName>
+    <nr_headerlines>1</nr_headerlines>
+    <footer>N</footer>
+    <nr_footerlines>1</nr_footerlines>
+    <line_wrapped>N</line_wrapped>
+    <nr_wraps>1</nr_wraps>
+    <layout_paged>N</layout_paged>
+    <nr_lines_per_page>80</nr_lines_per_page>
+    <nr_lines_doc_header>0</nr_lines_doc_header>
+    <noempty>Y</noempty>
+    <include>N</include>
+    <include_field />
+    <rownum>N</rownum>
+    <rownum_field />
+    <rownumByFile>N</rownumByFile>
+    <format>Unix</format>
+    <encoding />
+    <limit>0</limit>
+    <date_format_lenient>Y</date_format_lenient>
+    <date_format_locale>en_US</date_format_locale>
+    <length>Characters</length>
+    <filters />
+    <error_count_field />
+    <error_fields_field />
+    <error_text_field />
+    <error_line_skipped>N</error_line_skipped>
+    <schema_definition />
+    <ignore_fields>N</ignore_fields>
+    <shortFileFieldName />
+    <extensionFieldName />
+    <pathFieldName />
+    <sizeFieldName />
+    <hiddenFieldName />
+    <lastModificationTimeFieldName />
+    <uriNameFieldName />
+    <rootUriNameFieldName />
+    <files>
+      <file>
+        <name>${E2E_INPUT_DIR}/predicate-polygons.csv</name>
+        <filemask />
+        <exclude_filemask />
+        <file_required>Y</file_required>
+        <include_subfolders>N</include_subfolders>
+      </file>
+    </files>
+    <accept_filenames>N</accept_filenames>
+    <accept_transform_name />
+    <passing_through_fields>N</passing_through_fields>
+    <accept_field />
+    <add_to_result_filenames>N</add_to_result_filenames>
+    <error_ignored>N</error_ignored>
+    <file_error_field />
+    <file_error_message_field />
+    <skip_bad_files>N</skip_bad_files>
+    <bad_line_files_destination_directory />
+    <bad_line_files_extension>warning</bad_line_files_extension>
+    <error_line_files_destination_directory />
+    <error_line_files_extension>error</error_line_files_extension>
+    <line_number_files_destination_directory />
+    <line_number_files_extension>line</line_number_files_extension>
+    <fields>
+      <field>
+        <name>region</name>
+        <position>-1</position>
+        <length>-1</length>
+        <type>String</type>
+        <ignore>N</ignore>
+        <format />
+        <trim_type>both</trim_type>
+        <precision>-1</precision>
+        <currency />
+        <decimal>.</decimal>
+        <group>,</group>
+        <repeat>N</repeat>
+        <null_string />
+        <if_null_value />
+      </field>
+      <field>
+        <name>mask</name>
+        <position>-1</position>
+        <length>-1</length>
+        <type>String</type>
+        <ignore>N</ignore>
+        <format />
+        <trim_type>both</trim_type>
+        <precision>-1</precision>
+        <currency />
+        <decimal>.</decimal>
+        <group>,</group>
+        <repeat>N</repeat>
+        <null_string />
+        <if_null_value />
+      </field>
+    </fields>
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>100</xloc>
+      <yloc>300</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name />
+    </partitioning>
+    <attributes />
+  </transform>
+  <transform>
+    <type>TextFileOutput</type>
+    <name>Write result</name>
+    <compression>None</compression>
+    <create_parent_folder>Y</create_parent_folder>
+    <separator>;</separator>
+    <enclosure>"</enclosure>
+    <enclosure_forced>Y</enclosure_forced>
+    <header>Y</header>
+    <footer>N</footer>
+    <format>UNIX</format>
+    <fileNameInField>N</fileNameInField>
+    <ignore_fields>N</ignore_fields>
+    <file>
+      <name>${E2E_OUTPUT_DIR}/spatial-predicate</name>
+      <do_not_open_new_file_init>Y</do_not_open_new_file_init>
+      <extension>csv</extension>
+      <append>N</append>
+      <split>N</split>
+      <haspartno>N</haspartno>
+      <add_date>N</add_date>
+      <add_time>N</add_time>
+      <SpecifyFormat>N</SpecifyFormat>
+      <add_to_result_filenames>N</add_to_result_filenames>
+      <pad>N</pad>
+      <fast_dump>N</fast_dump>
+    </file>
+    <fields>
+      <field>
+        <name>id</name>
+        <type>String</type>
+        <format />
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+      <field>
+        <name>matches</name>
+        <type>Boolean</type>
+        <format />
+        <length>-1</length>
+        <precision>-1</precision>
+      </field>
+    </fields>
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>950</xloc>
+      <yloc>100</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name />
+    </partitioning>
+    <attributes />
+  </transform>
+  <order>
+    <hop>
+      <from>Read geometry</from>
+      <to>Prepare primary geometry</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Spatial Predicate</from>
+      <to>Write result</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Read secondary</from>
+      <to>Prepare secondary geometry</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Prepare primary geometry</from>
+      <to>Spatial Predicate</to>
+      <enabled>Y</enabled>
+    </hop>
+    <hop>
+      <from>Prepare secondary geometry</from>
+      <to>Spatial Predicate</to>
+      <enabled>Y</enabled>
+    </hop>
+  </order>
+  <transform_error_handling />
+  <notepads />
+  <attributes />
+  <transform>
+    <type>SelectValues</type>
+    <name>Prepare primary geometry</name>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <meta>
+        <name>geometry</name>
+        <type>Geometry</type>
+        <length>-1</length>
+        <precision>-1</precision>
+        <storage_type />
+        <date_format_lenient>N</date_format_lenient>
+        <lenient_string_to_number>N</lenient_string_to_number>
+      </meta>
+    </fields>
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>300</xloc>
+      <yloc>100</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name />
+    </partitioning>
+    <attributes />
+  </transform>
+  <transform>
+    <type>SelectValues</type>
+    <name>Prepare secondary geometry</name>
+    <fields>
+      <select_unspecified>Y</select_unspecified>
+      <meta>
+        <name>mask</name>
+        <type>Geometry</type>
+        <length>-1</length>
+        <precision>-1</precision>
+        <storage_type />
+        <date_format_lenient>N</date_format_lenient>
+        <lenient_string_to_number>N</lenient_string_to_number>
+      </meta>
+    </fields>
+    <distribute>N</distribute>
+    <copies>1</copies>
+    <GUI>
+      <xloc>300</xloc>
+      <yloc>300</yloc>
+    </GUI>
+    <partitioning>
+      <method>none</method>
+      <schema_name />
+    </partitioning>
+    <attributes />
+  </transform>
+</pipeline>

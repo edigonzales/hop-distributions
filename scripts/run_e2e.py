@@ -132,6 +132,15 @@ def main():
         pipeline(FIXTURES/f'geometry/{case}.hpl',dict(E2E_INPUT_DIR=geo,E2E_OUTPUT_DIR=geo))
         output=geo/('geometry-calculator.csv' if case=='calculator' else 'geoprocessing.csv')
         assert rows(output)==expected,rows(output)
+    (geo/'predicate-points.csv').write_text(
+        'id;geometry\n1;POINT (1 1)\n2;POINT (5 5)\n3;POINT (0 1)\n',
+        encoding='utf-8')
+    (geo/'predicate-polygons.csv').write_text(
+        'region;mask\n10;"POLYGON ((0 0,3 0,3 3,0 3,0 0))"\n',
+        encoding='utf-8')
+    pipeline(FIXTURES/'geometry/spatial-predicate.hpl', dict(E2E_INPUT_DIR=geo, E2E_OUTPUT_DIR=geo))
+    predicate_rows = rows(geo/'spatial-predicate.csv')
+    assert predicate_rows == [['id', 'matches'], ['1', 'Y'], ['2', 'N'], ['3', 'N']], predicate_rows
     # Exchange native Geometry rows across the independently packaged plugins.
     flow=ET.Element('pipeline')
     info=ET.SubElement(flow,'info');ET.SubElement(info,'name').text='geometry-interop'
