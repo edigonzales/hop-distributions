@@ -64,6 +64,11 @@
     "commit": "6f21f7fcbc342ec16432e10377623dc7b0ced861",
     "path": "e2e/geoprocessing.hpl"
   },
+  "geometry/spatial-predicate.hpl": {
+    "repository": "hop-geoprocessing-plugin",
+    "commit": "23abc68849111126901f5270207f7c807f3b9fe8",
+    "path": "examples/spatial-predicate.hpl"
+  },
   "python/e2e/graalpy.hpl": {
     "repository": "hop-python-plugin",
     "commit": "11b3e52c31c316e8294381e55099b69b08f52af4",
