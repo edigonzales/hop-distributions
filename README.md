@@ -141,9 +141,10 @@ Row Validator checks cover full validation with compressed one-row-cache spoolin
 unchanged original values and ordering, late UNIQUE conflicts and MANDATORY
 CONSTRAINT failures with no output, the limited Single Pass scope and early failure,
 empty input, parallel Single Pass copies, rejection of parallel Full validation,
-and typed temporal conversion with `Europe/Zurich`. They verify JSONL completion,
-status, release decisions and row counts, plus spool cleanup. All nine scenarios
-use small local fixtures; reports and generated pipelines remain under
+and typed temporal conversion with `Europe/Zurich`. The checks compare CSV output
+and verify spool cleanup. Representative JSONL reports confirm release decisions
+and row counts, including the row emitted before a Single Pass failure. All nine
+scenarios use local fixtures; reports and generated pipelines remain under
 `reports/row-validator`.
 
 Fixture preparation uses a separate JVM with the required data libraries; that
