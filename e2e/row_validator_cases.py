@@ -99,8 +99,7 @@ def create_pipeline(work, fixtures, case):
 def verify_output(work, case):
     path = work / (case + '.csv')
     if case in VALIDATION_FAILURES or case == 'full-parallel':
-        # A stopped pipeline may not drain already emitted single-pass rowsets.
-        # Their exact emission count is asserted in the validator's report instead.
+        # The single-invalid report counts emitted rows even if Hop stops before CSV drains.
         if path.exists():
             with path.open(newline='', encoding='utf-8') as stream:
                 rows = list(csv.DictReader(stream, delimiter=';'))
