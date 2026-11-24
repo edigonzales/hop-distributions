@@ -42,10 +42,6 @@
     <fileName>${E2E_OUTPUT_DIR}/roundtrip.xtf</fileName>
     <modelNames>HopIli_Geometry_V1</modelNames>
     <modelDirectories>${E2E_INPUT_DIR}</modelDirectories>
-    <className>HopIli_Geometry_V1.Data.TestObject</className>
-    <objectIdField>_ili_tid</objectIdField>
-    <basketIdField>_ili_bid</basketIdField>
-    <basketId>b1</basketId>
     <overwrite>Y</overwrite>
     <distribute>Y</distribute>
     <copies>1</copies>
@@ -58,6 +54,50 @@
       <schema_name/>
     </partitioning>
     <attributes/>
+    <basketMode>FROM_FIELD</basketMode>
+    <validateBeforePublish>N</validateBeforePublish>
+    <inputs>
+      <input>
+        <transformName>INTERLIS Input</transformName>
+        <className>HopIli_Geometry_V1.Data.TestObject</className>
+        <objectIdField>_ili_tid</objectIdField>
+        <basketIdField>_ili_bid</basketIdField>
+        <fields>
+          <field>
+            <sourceField>Name</sourceField>
+            <targetPath>Name</targetPath>
+          </field>
+          <field>
+            <sourceField>Center</sourceField>
+            <targetPath>Center</targetPath>
+          </field>
+          <field>
+            <sourceField>Points</sourceField>
+            <targetPath>Points</targetPath>
+          </field>
+          <field>
+            <sourceField>Axis</sourceField>
+            <targetPath>Axis</targetPath>
+          </field>
+          <field>
+            <sourceField>Axes</sourceField>
+            <targetPath>Axes</targetPath>
+          </field>
+          <field>
+            <sourceField>Boundary</sourceField>
+            <targetPath>Boundary</targetPath>
+          </field>
+          <field>
+            <sourceField>Area</sourceField>
+            <targetPath>Area</targetPath>
+          </field>
+          <field>
+            <sourceField>Surfaces</sourceField>
+            <targetPath>Surfaces</targetPath>
+          </field>
+        </fields>
+      </input>
+    </inputs>
   </transform>
   <order>
     <hop>

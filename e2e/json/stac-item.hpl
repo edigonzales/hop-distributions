@@ -205,7 +205,7 @@
     <json_pointer/>
     <mappings>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>href</key>
         <value_source>FIELD</value_source>
         <value_field>asset_href</value_field>
@@ -213,7 +213,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>type</key>
         <value_source>FIELD</value_source>
         <value_field>asset_type</value_field>
@@ -221,7 +221,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>title</key>
         <value_source>FIELD</value_source>
         <value_field>asset_title</value_field>
@@ -229,9 +229,9 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>roles</key>
-        <value_source>LITERAL</value_source>
+        <value_source>CONFIGURED</value_source>
         <value>["data"]</value>
         <value_type>JSON</value_type>
         <skip_if_null>N</skip_if_null>
@@ -254,23 +254,23 @@
     <json_pointer/>
     <mappings>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>stac_version</key>
-        <value_source>LITERAL</value_source>
+        <value_source>CONFIGURED</value_source>
         <value>1.1.0</value>
         <value_type>STRING</value_type>
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>type</key>
-        <value_source>LITERAL</value_source>
+        <value_source>CONFIGURED</value_source>
         <value>Feature</value>
         <value_type>STRING</value_type>
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>id</key>
         <value_source>FIELD</value_source>
         <value_field>item_id</value_field>
@@ -278,7 +278,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>collection</key>
         <value_source>FIELD</value_source>
         <value_field>collection</value_field>
@@ -286,7 +286,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>bbox</key>
         <value_source>FIELD</value_source>
         <value_field>bbox_json</value_field>
@@ -294,7 +294,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>geometry</key>
         <value_source>FIELD</value_source>
         <value_field>geometry_json</value_field>
@@ -319,7 +319,7 @@
     <json_pointer>/properties</json_pointer>
     <mappings>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>datetime</key>
         <value_source>FIELD</value_source>
         <value_field>datetime</value_field>
@@ -327,7 +327,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>title</key>
         <value_source>FIELD</value_source>
         <value_field>title</value_field>
