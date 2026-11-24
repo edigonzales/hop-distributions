@@ -155,7 +155,7 @@
     <json_pointer/>
     <mappings>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>rel</key>
         <value_source>FIELD</value_source>
         <value_field>rel</value_field>
@@ -163,7 +163,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>href</key>
         <value_source>FIELD</value_source>
         <value_field>href</value_field>
@@ -171,7 +171,7 @@
         <skip_if_null>N</skip_if_null>
       </mapping>
       <mapping>
-        <key_source>LITERAL</key_source>
+        <key_source>CONFIGURED</key_source>
         <key>type</key>
         <value_source>FIELD</value_source>
         <value_field>media_type</value_field>

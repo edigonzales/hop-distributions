@@ -35,7 +35,7 @@ def ili2db_transform(fixtures: Path, target: Path) -> str:
       <connectionName/>
       <createLogFile>N</createLogFile>
       <datasetField/>
-      <datasetMode>STATIC</datasetMode>
+      <datasetMode>CONFIGURED</datasetMode>
       <datasetName/>
       <defaultSrsCode>2056</defaultSrsCode>
       <disableValidation>N</disableValidation>
@@ -44,7 +44,7 @@ def ili2db_transform(fixtures: Path, target: Path) -> str:
       <function>IMPORT</function>
       <gpkgFileField/>
       <gpkgFilePath>{escape(str(target))}</gpkgFilePath>
-      <gpkgTargetMode>STATIC_PATH</gpkgTargetMode>
+      <gpkgTargetMode>CONFIGURED</gpkgTargetMode>
       <implicitSchemaImport>Y</implicitSchemaImport>
       <importFileField>filename</importFileField>
       <importFilePath/>

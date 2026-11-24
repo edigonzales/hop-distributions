@@ -41,12 +41,12 @@
   },
   "json/stac-item.hpl": {
     "repository": "hop-json-object-builder-plugin",
-    "commit": "e14ff693fbc1c29c7d04473797ed0f26c87a508f",
+    "commit": "8f12df7ebfb771c20c06611991565c30f093bffb",
     "path": "examples/stac-item/stac-item.hpl"
   },
   "json/links-array.hpl": {
     "repository": "hop-json-object-builder-plugin",
-    "commit": "e14ff693fbc1c29c7d04473797ed0f26c87a508f",
+    "commit": "8f12df7ebfb771c20c06611991565c30f093bffb",
     "path": "examples/links-array/links-array.hpl"
   },
   "json/expected/stac-item.json": {
@@ -81,7 +81,7 @@
   },
   "interlis/roundtrip.hpl": {
     "repository": "hop-interlis-plugin",
-    "commit": "fe295acfdc34d882515c5fa8e183ae312a482dcd",
+    "commit": "2d072fe0ef240daa2b1c3f5e368dddde7e33cbb8",
     "path": "e2e/pipelines/05-xtf-roundtrip.hpl"
   },
   "interlis/check.hpl": {
@@ -122,7 +122,7 @@
   "ili2db_cases.py": {
     "repository": "hop-ili2db-plugin",
     "path": "scripts/run-e2e.py",
-    "commit": "319d4e545ea2f7261e8450c6dea26b492a207088"
+    "commit": "64b6b771d1bdd5ad86394584db0274c97651a620"
   },
   "validator_cases.py": {
     "repository": "hop-ilivalidator-plugin",
